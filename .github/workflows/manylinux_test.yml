@@ -1,4 +1,4 @@
-name: Test Manylinux Builds
+name: manylinux-build-and-test
 
 on:
   workflow_dispatch:
