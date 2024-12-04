@@ -54,37 +54,21 @@ jobs:
 
   build-llvmdev:
     needs: matrix-prep
-    name: Build LLVMDEV - ${{ matrix.arch }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x86_64
-            runner: ubuntu-latest
-            docker_script: docker_run_x64.sh
-          - arch: aarch64
-            runner: ubuntu-latest
-            docker_script: docker_run_aarch64.sh
-    runs-on: ${{ matrix.runner }}
+    name: Build LLVMDEV
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up QEMU
-        if: matrix.arch == 'aarch64'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
       
       - name: Build LLVMDEV
         run: |
           cd buildscripts/manylinux
-          chmod +x ./${{ matrix.docker_script }}
+          chmod +x ./docker_run_x64.sh
           mkdir -p docker_output
-          ./${{ matrix.docker_script }} build_llvmdev.sh
+          ./docker_run_x64.sh build_llvmdev.sh
           
       - name: Move Build Artifacts
         run: |
-          sudo find /root/miniconda3/envs/buildenv/conda-bld -name "*.tar.bz2" -exec cp {} docker_output/ \;
+          sudo find /opt/conda/envs/buildenv/conda-bld -name "*.tar.bz2" -exec cp {} docker_output/ \;
           
       - name: Debug Build Output
         if: always()
@@ -96,12 +80,12 @@ jobs:
           echo "=== Docker Output Directory ==="
           ls -la docker_output/ || echo "docker_output directory not found"
           echo "=== Conda Build Directory ==="
-          sudo ls -R /root/miniconda3/envs/buildenv/conda-bld/ || echo "conda-bld directory not found"
+          sudo ls -R /opt/conda/envs/buildenv/conda-bld/ || echo "conda-bld directory not found"
       
       - name: Upload LLVMDEV artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: llvmdev-${{ matrix.arch }}
+          name: llvmdev-x86_64
           path: |
             docker_output/*.tar.bz2
             docker_output/**/*.tar.bz2
@@ -110,51 +94,38 @@ jobs:
 
   build-llvmlite:
     needs: [matrix-prep, build-llvmdev]
-    name: Build LLVMLITE ${{ matrix.arch }} - Python ${{ matrix.python_version }}
+    name: Build LLVMLITE - Python ${{ matrix.python_version }}
     strategy:
       fail-fast: false
       matrix:
         python_version: ${{ fromJson(needs.matrix-prep.outputs.python_versions) }}
-        include:
-          - arch: x86_64
-            runner: ubuntu-latest
-            docker_script: docker_run_x64.sh
-          - arch: aarch64
-            runner: ubuntu-latest
-            docker_script: docker_run_aarch64.sh
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up QEMU
-        if: matrix.arch == 'aarch64'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
       
       - name: Download LLVMDEV artifacts
         uses: actions/download-artifact@v4
         with:
-          name: llvmdev-${{ matrix.arch }}
+          name: llvmdev-x86_64
           path: docker_output
       
       - name: Setup local conda channel
         run: |
-          mkdir -p docker_output/linux-${{ matrix.arch }}
-          mv docker_output/*.tar.bz2 docker_output/linux-${{ matrix.arch }}/
+          mkdir -p docker_output/linux-x86_64
+          mv docker_output/*.tar.bz2 docker_output/linux-x86_64/
           conda index docker_output
       
       - name: Build LLVMLITE
         run: |
           cd buildscripts/manylinux
-          chmod +x ./${{ matrix.docker_script }}
-          ./${{ matrix.docker_script }} build_llvmlite.sh ${{ matrix.python_version }}
+          chmod +x ./docker_run_x64.sh
+          ./docker_run_x64.sh build_llvmlite.sh ${{ matrix.python_version }}
       
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: llvmlite-${{ matrix.arch }}-${{ matrix.python_version }}
-          path: docker_output/dist_${{ matrix.arch }}_${{ matrix.python_version }}/wheelhouse/*.whl
+          name: llvmlite-x86_64-${{ matrix.python_version }}
+          path: docker_output/dist_x86_64_${{ matrix.python_version }}/wheelhouse/*.whl
           retention-days: 7
 
   collect-results:
