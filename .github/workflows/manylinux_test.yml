@@ -34,7 +34,7 @@ on:
 
 jobs:
   matrix-prep:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       python_versions: ${{ steps.set-matrix.outputs.python_versions }}
     steps:
@@ -55,7 +55,7 @@ jobs:
   build-llvmdev:
     needs: matrix-prep
     name: Build LLVMDEV
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       
@@ -68,7 +68,9 @@ jobs:
           
       - name: Move Build Artifacts
         run: |
-          sudo find /opt/conda/envs/buildenv/conda-bld -name "*.tar.bz2" -exec cp {} docker_output/ \;
+          cd buildscripts/manylinux
+          # Copy artifacts from inside the Docker container to host
+          docker cp manylinux-build:/opt/conda/envs/buildenv/conda-bld/linux-64/*.tar.bz2 docker_output/ || echo "No artifacts found"
           
       - name: Debug Build Output
         if: always()
@@ -79,8 +81,10 @@ jobs:
           ls -R
           echo "=== Docker Output Directory ==="
           ls -la docker_output/ || echo "docker_output directory not found"
-          echo "=== Conda Build Directory ==="
-          sudo ls -R /opt/conda/envs/buildenv/conda-bld/ || echo "conda-bld directory not found"
+          echo "=== Docker Container Status ==="
+          docker ps -a
+          echo "=== Docker Container Logs ==="
+          docker logs manylinux-build || echo "Container logs not available"
       
       - name: Upload LLVMDEV artifacts
         uses: actions/upload-artifact@v4
@@ -99,7 +103,7 @@ jobs:
       fail-fast: false
       matrix:
         python_version: ${{ fromJson(needs.matrix-prep.outputs.python_versions) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       
@@ -130,7 +134,7 @@ jobs:
 
   collect-results:
     needs: build-llvmlite
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
