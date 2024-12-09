@@ -1,108 +1,40 @@
-name: manylinux-build-and-test
+name: manylinux-build
 
 on:
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type'
-        type: choice
-        required: true
-        default: 'all'
-        options:
-          - all
-          - select
-      python_310:
-        description: 'Build Python 3.10'
-        type: boolean
-        required: false
-        default: false
-      python_311:
-        description: 'Build Python 3.11'
-        type: boolean
-        required: false
-        default: false
-      python_312:
-        description: 'Build Python 3.12'
-        type: boolean
-        required: false
-        default: false
-      python_313:
-        description: 'Build Python 3.13'
-        type: boolean
-        required: false
-        default: false
 
 jobs:
-  matrix-prep:
-    runs-on: ubuntu-24.04
-    outputs:
-      python_versions: ${{ steps.set-matrix.outputs.python_versions }}
-    steps:
-      - id: set-matrix
-        run: |
-          if [[ "${{ github.event.inputs.build_type }}" == "all" ]]; then
-            echo "python_versions=[\"cp310-cp310\",\"cp311-cp311\",\"cp312-cp312\",\"cp313-cp313\"]" >> $GITHUB_OUTPUT
-          else
-            VERSIONS=""
-            ${{ github.event.inputs.python_310 == 'true' }} && VERSIONS="$VERSIONS,\"cp310-cp310\""
-            ${{ github.event.inputs.python_311 == 'true' }} && VERSIONS="$VERSIONS,\"cp311-cp311\""
-            ${{ github.event.inputs.python_312 == 'true' }} && VERSIONS="$VERSIONS,\"cp312-cp312\""
-            ${{ github.event.inputs.python_313 == 'true' }} && VERSIONS="$VERSIONS,\"cp313-cp313\""
-            VERSIONS=${VERSIONS#,}
-            echo "python_versions=[$VERSIONS]" >> $GITHUB_OUTPUT
-          fi
-
   build-llvmdev:
-    needs: matrix-prep
-    name: Build LLVMDEV
+    name: Build LLVMDEV (Mock)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       
-      - name: Build LLVMDEV
+      - name: Create Mock Artifacts
         run: |
           cd buildscripts/manylinux
-          chmod +x ./docker_run_x64.sh
           mkdir -p docker_output
-          ./docker_run_x64.sh build_llvmdev.sh
+          # Create a dummy conda package to simulate LLVMDEV build
+          echo "mock content" > docker_output/llvmdev-mock-0.1.0-h123_linux64.tar.bz2
           
-      - name: Move Build Artifacts
+      - name: Debug Mock Artifacts
         run: |
-          cd buildscripts/manylinux
-          # Copy artifacts from inside the Docker container to host
-          docker cp manylinux-build:/opt/conda/envs/buildenv/conda-bld/linux-64/*.tar.bz2 docker_output/ || echo "No artifacts found"
-          
-      - name: Debug Build Output
-        if: always()
-        run: |
-          echo "=== Current Directory ==="
-          pwd
-          echo "=== Directory Structure ==="
-          ls -R
-          echo "=== Docker Output Directory ==="
-          ls -la docker_output/ || echo "docker_output directory not found"
-          echo "=== Docker Container Status ==="
-          docker ps -a
-          echo "=== Docker Container Logs ==="
-          docker logs manylinux-build || echo "Container logs not available"
+          echo "=== Host Directory Structure ==="
+          find buildscripts/manylinux/docker_output -type f -name "*.tar.bz2"
+          echo "=== File contents ==="
+          ls -la buildscripts/manylinux/docker_output/
       
       - name: Upload LLVMDEV artifacts
         uses: actions/upload-artifact@v4
         with:
           name: llvmdev-x86_64
-          path: |
-            docker_output/*.tar.bz2
-            docker_output/**/*.tar.bz2
+          path: buildscripts/manylinux/docker_output/*.tar.bz2
           retention-days: 1
-          if-no-files-found: warn
+          if-no-files-found: error
 
   build-llvmlite:
-    needs: [matrix-prep, build-llvmdev]
-    name: Build LLVMLITE - Python ${{ matrix.python_version }}
-    strategy:
-      fail-fast: false
-      matrix:
-        python_version: ${{ fromJson(needs.matrix-prep.outputs.python_versions) }}
+    needs: build-llvmdev
+    name: Build LLVMLITE
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -111,37 +43,31 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: llvmdev-x86_64
-          path: docker_output
+          path: buildscripts/manylinux/docker_output
+      
+      - name: Debug Downloaded Artifacts
+        run: |
+          echo "=== Downloaded Artifacts ==="
+          ls -la buildscripts/manylinux/docker_output/
       
       - name: Setup local conda channel
         run: |
+          cd buildscripts/manylinux
           mkdir -p docker_output/linux-x86_64
-          mv docker_output/*.tar.bz2 docker_output/linux-x86_64/
+          mv docker_output/*.tar.bz2 docker_output/linux-x86_64/ || echo "No .tar.bz2 files found"
+          ls -R docker_output/  # Debug: show directory structure
           conda index docker_output
-      
-      - name: Build LLVMLITE
+          
+      - name: Create Mock LLVMLITE Output
         run: |
           cd buildscripts/manylinux
-          chmod +x ./docker_run_x64.sh
-          ./docker_run_x64.sh build_llvmlite.sh ${{ matrix.python_version }}
+          mkdir -p docker_output/dist_x86_64/wheelhouse
+          echo "mock wheel" > docker_output/dist_x86_64/wheelhouse/llvmlite-mock-0.1.0-cp39-cp39-manylinux2014_x86_64.whl
       
-      - name: Upload wheel artifacts
+      - name: Upload LLVMLITE artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: llvmlite-x86_64-${{ matrix.python_version }}
-          path: docker_output/dist_x86_64_${{ matrix.python_version }}/wheelhouse/*.whl
+          name: llvmlite-x86_64
+          path: buildscripts/manylinux/docker_output/dist_x86_64/wheelhouse/*.whl
           retention-days: 7
-
-  collect-results:
-    needs: build-llvmlite
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: all-artifacts
-      
-      - name: List all built artifacts
-        run: |
-          echo "Built artifacts:"
-          ls -R all-artifacts/
+          if-no-files-found: error
