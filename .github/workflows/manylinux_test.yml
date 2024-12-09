@@ -5,22 +5,34 @@ on:
 
 jobs:
   build-llvmdev:
-    name: Build LLVMDEV (Mock)
+    name: Build LLVMDEV
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       
-      - name: Create Mock Artifacts
+      - name: Build LLVMDEV
         run: |
           cd buildscripts/manylinux
+          chmod +x ./docker_run_x64.sh
           mkdir -p docker_output
-          # Create a dummy conda package to simulate LLVMDEV build
-          echo "mock content" > docker_output/llvmdev-mock-0.1.0-h123_linux64.tar.bz2
+          ./docker_run_x64.sh build_llvmdev.sh
           
-      - name: Debug Mock Artifacts
+      - name: Move Build Artifacts
         run: |
+          cd buildscripts/manylinux
+          # Create directory to store artifacts
+          mkdir -p docker_output
+          # Copy artifacts from container to host
+          docker cp manylinux-build:/root/conda-bld/linux-64/*.tar.bz2 docker_output/ || echo "No artifacts in /root/conda-bld"
+          docker cp manylinux-build:/opt/conda/conda-bld/linux-64/*.tar.bz2 docker_output/ || echo "No artifacts in /opt/conda/conda-bld"
+          
+      - name: Debug Build Artifacts
+        run: |
+          echo "=== Container Directory Structure ==="
+          docker exec manylinux-build find /root/conda-bld -type f -name "*.tar.bz2" || echo "No files in /root/conda-bld"
+          docker exec manylinux-build find /opt/conda -type f -name "*.tar.bz2" || echo "No files in /opt/conda"
           echo "=== Host Directory Structure ==="
-          find buildscripts/manylinux/docker_output -type f -name "*.tar.bz2"
+          find buildscripts/manylinux/docker_output -type f -name "*.tar.bz2" || echo "No files in docker_output"
           echo "=== File contents ==="
           ls -la buildscripts/manylinux/docker_output/
       
@@ -39,6 +51,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: true
+          python-version: "3.9"
+      
+      - name: Install conda-build
+        shell: bash -el {0}
+        run: |
+          conda install -y conda-build
+      
       - name: Download LLVMDEV artifacts
         uses: actions/download-artifact@v4
         with:
@@ -51,18 +73,19 @@ jobs:
           ls -la buildscripts/manylinux/docker_output/
       
       - name: Setup local conda channel
+        shell: bash -el {0}
         run: |
           cd buildscripts/manylinux
           mkdir -p docker_output/linux-x86_64
           mv docker_output/*.tar.bz2 docker_output/linux-x86_64/ || echo "No .tar.bz2 files found"
           ls -R docker_output/  # Debug: show directory structure
           conda index docker_output
-          
-      - name: Create Mock LLVMLITE Output
+      
+      - name: Build LLVMLITE
         run: |
           cd buildscripts/manylinux
-          mkdir -p docker_output/dist_x86_64/wheelhouse
-          echo "mock wheel" > docker_output/dist_x86_64/wheelhouse/llvmlite-mock-0.1.0-cp39-cp39-manylinux2014_x86_64.whl
+          chmod +x ./docker_run_x64.sh
+          ./docker_run_x64.sh build_llvmlite.sh
       
       - name: Upload LLVMLITE artifacts
         uses: actions/upload-artifact@v4
