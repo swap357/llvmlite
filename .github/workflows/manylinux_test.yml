@@ -15,33 +15,19 @@ jobs:
           cd buildscripts/manylinux
           chmod +x ./docker_run_x64.sh
           mkdir -p docker_output
-          # Mount the repository root using GITHUB_WORKSPACE
-          docker run --name manylinux-build \
-            -v ${GITHUB_WORKSPACE}:/root/llvmlite \
-            -d quay.io/pypa/manylinux2014_x86_64 tail -f /dev/null
-          # Execute build script with miniconda URL
-          docker exec manylinux-build bash /root/llvmlite/buildscripts/manylinux/build_llvmdev.sh ${MINICONDA_FILE}
-          
-      - name: Debug Container Status
-        if: always()
-        run: |
-          echo "=== Docker Container Status ==="
-          docker ps -a
-          echo "=== Docker Container Logs ==="
-          docker logs manylinux-build || echo "No logs available"
+          ./docker_run_x64.sh build_llvmdev.sh "${MINICONDA_FILE}"
           
       - name: Move Build Artifacts
         run: |
           cd buildscripts/manylinux
-          mkdir -p docker_output
-          # The output should be in /root/llvmlite/docker_output inside container
-          docker cp manylinux-build:/root/llvmlite/docker_output/linux-64/*.tar.bz2 docker_output/ || echo "No artifacts in expected location"
-      
+          # Copy artifacts from container to host
+          docker cp manylinux-build:/root/llvmlite/docker_output/linux-64/*.tar.bz2 docker_output/ || echo "No artifacts found"
+          
       - name: Debug Build Artifacts
         run: |
+          echo "=== Container Directory Structure ==="
+          docker exec manylinux-build ls -R /root/llvmlite/docker_output || echo "Directory not found"
           echo "=== Host Directory Structure ==="
-          find buildscripts/manylinux/docker_output -type f || echo "No files in docker_output"
-          echo "=== File contents ==="
           ls -la buildscripts/manylinux/docker_output/
       
       - name: Upload LLVMDEV artifacts
