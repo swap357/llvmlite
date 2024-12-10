@@ -15,20 +15,41 @@ jobs:
           cd buildscripts/manylinux
           chmod +x ./docker_run_x64.sh
           mkdir -p docker_output
+          # Debug: Show environment
+          echo "MINICONDA_FILE=${MINICONDA_FILE}"
+          # Run build
           ./docker_run_x64.sh build_llvmdev.sh "${MINICONDA_FILE}"
+          
+      - name: Debug Docker State
+        if: always()
+        run: |
+          cd buildscripts/manylinux
+          echo "=== Docker Container List ==="
+          docker ps -a
+          # Get the most recent container ID
+          CONTAINER_ID=$(docker ps -lq)
+          if [ -n "$CONTAINER_ID" ]; then
+            echo "=== Container Logs ==="
+            docker logs $CONTAINER_ID
+            echo "=== Container Directory Structure ==="
+            docker exec $CONTAINER_ID ls -R /root/llvmlite/docker_output || echo "Directory not found"
+          fi
           
       - name: Move Build Artifacts
         run: |
           cd buildscripts/manylinux
-          # Copy artifacts from container to host
-          docker cp manylinux-build:/root/llvmlite/docker_output/linux-64/*.tar.bz2 docker_output/ || echo "No artifacts found"
-          
-      - name: Debug Build Artifacts
-        run: |
-          echo "=== Container Directory Structure ==="
-          docker exec manylinux-build ls -R /root/llvmlite/docker_output || echo "Directory not found"
-          echo "=== Host Directory Structure ==="
-          ls -la buildscripts/manylinux/docker_output/
+          # Get the most recent container ID
+          CONTAINER_ID=$(docker ps -lq)
+          if [ -n "$CONTAINER_ID" ]; then
+            echo "Using container: $CONTAINER_ID"
+            # Try both possible locations
+            docker cp $CONTAINER_ID:/root/llvmlite/docker_output/linux-64/*.tar.bz2 docker_output/ || \
+            docker cp $CONTAINER_ID:/opt/conda/envs/buildenv/conda-bld/linux-64/*.tar.bz2 docker_output/ || \
+            echo "No artifacts found in expected locations"
+          else
+            echo "No container found"
+            exit 1
+          fi
       
       - name: Upload LLVMDEV artifacts
         uses: actions/upload-artifact@v4
