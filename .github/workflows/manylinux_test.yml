@@ -12,50 +12,23 @@ jobs:
       
       - name: Build LLVMDEV
         run: |
+          # Create output directory in SRCDIR
+          mkdir -p /home/runner/work/llvmlite/llvmlite/docker_output
+          chmod 777 /home/runner/work/llvmlite/llvmlite/docker_output
           cd buildscripts/manylinux
-          chmod +x ./docker_run_x64.sh
-          mkdir -p docker_output
-          # Debug: Show environment
-          echo "MINICONDA_FILE=${MINICONDA_FILE}"
-          # Run build
           ./docker_run_x64.sh build_llvmdev.sh "${MINICONDA_FILE}"
           
-      - name: Debug Docker State
+      - name: Debug Output
         if: always()
         run: |
-          cd buildscripts/manylinux
-          echo "=== Docker Container List ==="
-          docker ps -a
-          # Get the most recent container ID
-          CONTAINER_ID=$(docker ps -lq)
-          if [ -n "$CONTAINER_ID" ]; then
-            echo "=== Container Logs ==="
-            docker logs $CONTAINER_ID
-            echo "=== Container Directory Structure ==="
-            docker exec $CONTAINER_ID ls -R /root/llvmlite/docker_output || echo "Directory not found"
-          fi
-          
-      - name: Move Build Artifacts
-        run: |
-          cd buildscripts/manylinux
-          # Get the most recent container ID
-          CONTAINER_ID=$(docker ps -lq)
-          if [ -n "$CONTAINER_ID" ]; then
-            echo "Using container: $CONTAINER_ID"
-            # Try both possible locations
-            docker cp $CONTAINER_ID:/root/llvmlite/docker_output/linux-64/*.tar.bz2 docker_output/ || \
-            docker cp $CONTAINER_ID:/opt/conda/envs/buildenv/conda-bld/linux-64/*.tar.bz2 docker_output/ || \
-            echo "No artifacts found in expected locations"
-          else
-            echo "No container found"
-            exit 1
-          fi
+          echo "=== Build Output Directory ==="
+          ls -la /home/runner/work/llvmlite/llvmlite/docker_output/
       
       - name: Upload LLVMDEV artifacts
         uses: actions/upload-artifact@v4
         with:
           name: llvmdev-x86_64
-          path: buildscripts/manylinux/docker_output/*.tar.bz2
+          path: /home/runner/work/llvmlite/llvmlite/docker_output/*.tar.bz2
           retention-days: 1
           if-no-files-found: error
 
@@ -80,20 +53,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: llvmdev-x86_64
-          path: buildscripts/manylinux/docker_output
-      
-      - name: Debug Downloaded Artifacts
-        run: |
-          echo "=== Downloaded Artifacts ==="
-          ls -la buildscripts/manylinux/docker_output/
+          path: /home/runner/work/llvmlite/llvmlite/docker_output
       
       - name: Setup local conda channel
         shell: bash -el {0}
         run: |
-          cd buildscripts/manylinux
+          cd /home/runner/work/llvmlite/llvmlite
           mkdir -p docker_output/linux-x86_64
-          mv docker_output/*.tar.bz2 docker_output/linux-x86_64/ || echo "No .tar.bz2 files found"
-          ls -R docker_output/  # Debug: show directory structure
+          mv docker_output/*.tar.bz2 docker_output/linux-x86_64/
           conda index docker_output
       
       - name: Build LLVMLITE
@@ -106,6 +73,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: llvmlite-x86_64
-          path: buildscripts/manylinux/docker_output/dist_x86_64/wheelhouse/*.whl
+          path: /home/runner/work/llvmlite/llvmlite/docker_output/dist_x86_64/wheelhouse/*.whl
           retention-days: 7
           if-no-files-found: error
