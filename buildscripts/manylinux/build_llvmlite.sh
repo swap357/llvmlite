@@ -18,16 +18,8 @@ ls -l /opt/python/$pyver/bin
 
 conda create -y -n $envname 
 conda activate $envname
-# Install llvmdev
-
-if [[ $(uname -m) == "aarch64" ]] ; then
-    conda install -y numba/label/manylinux_2_28::llvmdev --no-deps
-elif [[ $(uname -m) == "x86_64" ]] ; then
-    conda install -y numba/label/manylinux_2_17::llvmdev --no-deps
-else
-    echo "Error: Unsupported architecture: $(uname -m)"
-    exit 1
-fi
+# Install llvmdev from local build
+conda install -y -c file://${outputdir} --override-channels llvmdev --no-deps
 
 # Prepend builtin Python Path
 export PATH=/opt/python/$pyver/bin:$PATH

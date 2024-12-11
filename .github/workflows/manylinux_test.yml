@@ -12,7 +12,6 @@ jobs:
       
       - name: Build LLVMDEV
         run: |
-          # Create output directory in SRCDIR
           mkdir -p /home/runner/work/llvmlite/llvmlite/docker_output
           chmod 777 /home/runner/work/llvmlite/llvmlite/docker_output
           cd buildscripts/manylinux
@@ -41,17 +40,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-activate-base: true
-          python-version: "3.9"
-      
-      - name: Install conda-build
-        shell: bash -el {0}
+      - name: Install Miniconda
         run: |
+          cd buildscripts/manylinux
+          source ./prepare_miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-py311_24.9.2-0-Linux-x86_64.sh
           conda install -y conda-build
-          conda info
-          conda list
       
       - name: Download LLVMDEV artifacts
         uses: actions/download-artifact@v4
@@ -60,18 +53,21 @@ jobs:
           path: /home/runner/work/llvmlite/llvmlite/docker_output
       
       - name: Setup local conda channel
-        shell: bash -el {0}
         run: |
           cd /home/runner/work/llvmlite/llvmlite
-          mkdir -p docker_output/linux-x86_64
-          mv docker_output/*.tar.bz2 docker_output/linux-x86_64/
-          $CONDA/bin/conda index docker_output
+          # Create conda channel structure
+          mkdir -p docker_output/linux-64
+          # Move artifacts to the correct location (linux-64 instead of linux-x86_64)
+          mv docker_output/*.tar.bz2 docker_output/linux-64/
+          source /root/miniconda3/bin/activate base
+          conda index docker_output
       
       - name: Build LLVMLITE
         run: |
           cd buildscripts/manylinux
           chmod +x ./docker_run_x64.sh
-          ./docker_run_x64.sh build_llvmlite.sh
+          # Pass the channel path to the container
+          ./docker_run_x64.sh build_llvmlite.sh "${MINICONDA_FILE}"
       
       - name: Upload LLVMLITE artifacts
         uses: actions/upload-artifact@v4
