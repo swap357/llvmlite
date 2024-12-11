@@ -65,7 +65,7 @@ jobs:
           cd /home/runner/work/llvmlite/llvmlite
           mkdir -p docker_output/linux-x86_64
           mv docker_output/*.tar.bz2 docker_output/linux-x86_64/
-          conda-build index docker_output
+          $CONDA/bin/conda index docker_output
       
       - name: Build LLVMLITE
         run: |
