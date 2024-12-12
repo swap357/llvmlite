@@ -19,8 +19,6 @@ jobs:
         run: |
           mkdir -p /home/runner/work/llvmlite/llvmlite/docker_output
           chmod 777 /home/runner/work/llvmlite/llvmlite/docker_output
-          mkdir -p /home/runner/work/llvmlite/llvmlite/docker_output/dist_x86_64/wheelhouse
-          chmod 777 /home/runner/work/llvmlite/llvmlite/docker_output/dist_x86_64/wheelhouse
       
       - name: List Available Python Versions
         run: |
@@ -38,13 +36,13 @@ jobs:
         run: |
           echo "=== Build Output Directory ==="
           ls -la /home/runner/work/llvmlite/llvmlite/docker_output/
-          echo "=== Wheelhouse Directory ==="
-          ls -la /home/runner/work/llvmlite/llvmlite/docker_output/dist_x86_64/wheelhouse/ || true
+          echo "=== Python-specific Directory ==="
+          ls -la /home/runner/work/llvmlite/llvmlite/docker_output/dist_x86_64_${{ matrix.python-version }}/wheelhouse/ || true
       
       - name: Upload LLVMLITE artifacts
         uses: actions/upload-artifact@v4
         with:
           name: llvmlite-${{ matrix.python-version }}
-          path: /home/runner/work/llvmlite/llvmlite/docker_output/dist_x86_64/wheelhouse/*.whl
+          path: /home/runner/work/llvmlite/llvmlite/docker_output/dist_x86_64_${{ matrix.python-version }}/wheelhouse/*.whl
           retention-days: 7
           if-no-files-found: error 
