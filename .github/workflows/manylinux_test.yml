@@ -39,35 +39,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Install Miniconda
-        run: |
-          cd buildscripts/manylinux
-          source ./prepare_miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-py311_24.9.2-0-Linux-x86_64.sh
-          conda install -y conda-build
-      
-      - name: Download LLVMDEV artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: llvmdev-x86_64
-          path: /home/runner/work/llvmlite/llvmlite/docker_output
-      
-      - name: Setup local conda channel
-        run: |
-          cd /home/runner/work/llvmlite/llvmlite
-          # Create conda channel structure
-          mkdir -p docker_output/linux-64
-          # Move artifacts to the correct location (linux-64 instead of linux-x86_64)
-          mv docker_output/*.tar.bz2 docker_output/linux-64/
-          source /root/miniconda3/bin/activate base
-          conda index docker_output
-      
+
       - name: Build LLVMLITE
         run: |
           cd buildscripts/manylinux
           chmod +x ./docker_run_x64.sh
-          # Pass the channel path to the container
-          ./docker_run_x64.sh build_llvmlite.sh "${MINICONDA_FILE}"
+          ./docker_run_x64.sh build_llvmlite.sh
       
       - name: Upload LLVMLITE artifacts
         uses: actions/upload-artifact@v4
