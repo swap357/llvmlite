@@ -31,7 +31,7 @@ jobs:
         run: |
           cd buildscripts/manylinux
           chmod +x ./docker_run_x64.sh
-          ./docker_run_x64.sh build_llvmlite.sh "${MINICONDA_FILE}" "${{ matrix.python-version }}"
+          ./docker_run_x64.sh build_llvmlite.sh "${{ matrix.python-version }}"
       
       - name: Debug Output
         if: always()
