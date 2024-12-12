@@ -15,6 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Create Output Directory
+        run: |
+          mkdir -p /home/runner/work/llvmlite/llvmlite/docker_output
+          chmod 777 /home/runner/work/llvmlite/llvmlite/docker_output
+          mkdir -p /home/runner/work/llvmlite/llvmlite/docker_output/dist_x86_64/wheelhouse
+          chmod 777 /home/runner/work/llvmlite/llvmlite/docker_output/dist_x86_64/wheelhouse
+      
       - name: List Available Python Versions
         run: |
           cd buildscripts/manylinux
@@ -30,7 +37,9 @@ jobs:
         if: always()
         run: |
           echo "=== Build Output Directory ==="
-          ls -la /home/runner/work/llvmlite/llvmlite/docker_output/dist_x86_64/wheelhouse/
+          ls -la /home/runner/work/llvmlite/llvmlite/docker_output/
+          echo "=== Wheelhouse Directory ==="
+          ls -la /home/runner/work/llvmlite/llvmlite/docker_output/dist_x86_64/wheelhouse/ || true
       
       - name: Upload LLVMLITE artifacts
         uses: actions/upload-artifact@v4
