@@ -61,9 +61,39 @@ jobs:
         run: |
           call C:\Miniconda3\Scripts\activate.bat
           conda activate builder
+          
+          :: Enable command echoing and error checking
+          @echo on
+          setlocal enabledelayedexpansion
+          
           set "RECIPE_NAME=.\conda-recipes\llvmdev"
+          
+          :: Run conda build with error checking
           conda build %RECIPE_NAME%
-          for /f "tokens=* USEBACKQ" %%F in (`conda build --output %RECIPE_NAME%`) do set OUTPUT=%%F
+          if errorlevel 1 (
+            echo Conda build failed
+            exit /b 1
+          )
+          
+          :: Get the output path only if build succeeded
+          conda build --output %RECIPE_NAME% > output_path.txt
+          if errorlevel 1 (
+            echo Failed to get conda build output path
+            exit /b 1
+          )
+          
+          set /p OUTPUT=<output_path.txt
+          if not defined OUTPUT (
+            echo Failed to read output path
+            exit /b 1
+          )
+          
+          echo Conda package will be at: %OUTPUT%
+          if not exist "%OUTPUT%" (
+            echo Expected output package does not exist: %OUTPUT%
+            exit /b 1
+          )
+          
           echo OUTPUT=%OUTPUT% >> %GITHUB_ENV%
 
       - name: Upload LLVMDEV artifacts
