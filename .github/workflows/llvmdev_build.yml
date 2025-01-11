@@ -49,24 +49,26 @@ jobs:
           $wc = New-Object net.webclient
           $wc.Downloadfile("https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe", "Miniconda3-latest-Windows-x86_64.exe")
           Start-Process "Miniconda3-latest-Windows-x86_64.exe" "/S /D=C:\Miniconda3" -Wait
+          # Initialize conda for PowerShell
+          & C:\Miniconda3\shell\condabin\conda-hook.ps1
+          conda init powershell
 
       - name: Setup Conda Environment
         shell: pwsh
         run: |
-          & C:\Miniconda3\Scripts\activate.ps1
+          # Reload the path
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
           conda create -n builder conda-build -y
 
       - name: Install Build Dependencies
         shell: pwsh
         run: |
-          & C:\Miniconda3\Scripts\activate.ps1
           conda activate builder
           conda install -y cmake ninja
 
       - name: Build
         shell: pwsh
         run: |
-          & C:\Miniconda3\Scripts\activate.ps1
           conda activate builder
           
           $ErrorActionPreference = 'Stop'
