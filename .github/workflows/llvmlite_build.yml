@@ -203,12 +203,12 @@ jobs:
       - name: test_osx_64_py${{ matrix.python-version }}_npyNone
         run: |
           source "$HOME/miniconda3/etc/profile.d/conda.sh"
-          conda activate test_env
+          conda activate build_env
           export MACOSX_DEPLOYMENT_TARGET=10.9
           export CONDA_BUILD_SYSROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
           export LLVM_CONFIG="$CONDA_PREFIX/bin/llvm-config"
           export LLVMLITE_SHARED=1
-          
+
           python -m pip install dist/*.whl
           python -m llvmlite.tests
 
