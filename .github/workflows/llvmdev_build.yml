@@ -51,50 +51,45 @@ jobs:
           Start-Process "Miniconda3-latest-Windows-x86_64.exe" "/S /D=C:\Miniconda3" -Wait
 
       - name: Setup Conda Environment
-        shell: cmd
+        shell: pwsh
         run: |
-          call C:\Miniconda3\Scripts\activate.bat
+          & C:\Miniconda3\Scripts\activate.ps1
           conda create -n builder conda-build -y
 
-      - name: Build
-        shell: cmd
+      - name: Install Build Dependencies
+        shell: pwsh
         run: |
-          call C:\Miniconda3\Scripts\activate.bat
+          & C:\Miniconda3\Scripts\activate.ps1
+          conda activate builder
+          conda install -y cmake ninja
+
+      - name: Build
+        shell: pwsh
+        run: |
+          & C:\Miniconda3\Scripts\activate.ps1
           conda activate builder
           
-          :: Enable command echoing and error checking
-          @echo on
-          setlocal enabledelayedexpansion
+          $ErrorActionPreference = 'Stop'
+          $RecipeName = ".\conda-recipes\llvmdev"
           
-          set "RECIPE_NAME=.\conda-recipes\llvmdev"
+          Write-Host "Starting conda build..."
+          conda build $RecipeName
+          if ($LASTEXITCODE -ne 0) {
+              throw "Conda build failed with exit code $LASTEXITCODE"
+          }
           
-          :: Run conda build with error checking
-          conda build %RECIPE_NAME%
-          if errorlevel 1 (
-            echo Conda build failed
-            exit /b 1
-          )
+          Write-Host "Getting output path..."
+          $OUTPUT = conda build --output $RecipeName
+          if ($LASTEXITCODE -ne 0) {
+              throw "Failed to get conda build output path"
+          }
           
-          :: Get the output path only if build succeeded
-          conda build --output %RECIPE_NAME% > output_path.txt
-          if errorlevel 1 (
-            echo Failed to get conda build output path
-            exit /b 1
-          )
+          Write-Host "Conda package will be at: $OUTPUT"
+          if (-not (Test-Path $OUTPUT)) {
+              throw "Expected output package does not exist: $OUTPUT"
+          }
           
-          set /p OUTPUT=<output_path.txt
-          if not defined OUTPUT (
-            echo Failed to read output path
-            exit /b 1
-          )
-          
-          echo Conda package will be at: %OUTPUT%
-          if not exist "%OUTPUT%" (
-            echo Expected output package does not exist: %OUTPUT%
-            exit /b 1
-          )
-          
-          echo OUTPUT=%OUTPUT% >> %GITHUB_ENV%
+          "OUTPUT=$OUTPUT" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Upload LLVMDEV artifacts
         uses: actions/upload-artifact@v4
