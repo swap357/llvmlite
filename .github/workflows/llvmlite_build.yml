@@ -197,6 +197,8 @@ jobs:
           conda create -n test_env \
             python=${{ matrix.python-version }} \
             -y
+          # Install LLVM with all dependencies for macOS
+          conda install -y -c numba/label/ci llvmdev
 
       - name: test_osx_64_py${{ matrix.python-version }}_npyNone
         run: |
