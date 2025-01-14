@@ -117,16 +117,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install specific version of Command Line Tools
-      - name: Install Command Line Tools
+      - name: Setup Xcode
         run: |
-          # Remove existing Xcode and Command Line Tools
-          sudo rm -rf /Library/Developer/CommandLineTools
-          # Download and install older Command Line Tools (13.x)
-          wget https://download.developer.apple.com/Developer_Tools/Command_Line_Tools_for_Xcode_13.4/Command_Line_Tools_for_Xcode_13.4.dmg
-          hdiutil attach Command_Line_Tools_for_Xcode_13.4.dmg
-          sudo installer -pkg "/Volumes/Command Line Tools/Command Line Tools.pkg" -target /
-          hdiutil detach "/Volumes/Command Line Tools"
+          # List available Xcode versions
+          ls -l /Applications/Xcode*
+          sudo xcode-select --switch /Applications/Xcode_14.2.app
+          xcode-select -p
+          xcrun --show-sdk-path
 
       - name: Install Miniconda
         run: |
@@ -144,7 +141,7 @@ jobs:
           source $HOME/miniconda/bin/activate
           conda activate builder
           export MACOSX_DEPLOYMENT_TARGET=10.9
-          export CONDA_BUILD_SYSROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
+          export CONDA_BUILD_SYSROOT=$(xcrun --show-sdk-path)
           
           RECIPE_NAME=./conda-recipes/llvmdev
           conda build $RECIPE_NAME
