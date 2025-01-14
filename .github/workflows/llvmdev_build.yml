@@ -117,6 +117,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Install specific version of Command Line Tools
+      - name: Install Command Line Tools
+        run: |
+          # Remove existing Xcode and Command Line Tools
+          sudo rm -rf /Library/Developer/CommandLineTools
+          # Download and install older Command Line Tools (13.x)
+          wget https://download.developer.apple.com/Developer_Tools/Command_Line_Tools_for_Xcode_13.4/Command_Line_Tools_for_Xcode_13.4.dmg
+          hdiutil attach Command_Line_Tools_for_Xcode_13.4.dmg
+          sudo installer -pkg "/Volumes/Command Line Tools/Command Line Tools.pkg" -target /
+          hdiutil detach "/Volumes/Command Line Tools"
+
       - name: Install Miniconda
         run: |
           wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh
