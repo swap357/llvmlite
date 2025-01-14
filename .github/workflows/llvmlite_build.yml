@@ -101,6 +101,9 @@ jobs:
         with:
           name: llvmdev-windows-x86_64
           path: llvmdev-pkg
+          run-id: ${{ inputs.llvmdev_run_id }}
+          repository: swap357/llvmlite
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Visual Studio
         uses: microsoft/setup-msbuild@v1.1
@@ -184,6 +187,9 @@ jobs:
         with:
           name: llvmdev-osx-64
           path: llvmdev-pkg
+          run-id: ${{ inputs.llvmdev_run_id }}
+          repository: swap357/llvmlite
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Miniconda
         run: |
