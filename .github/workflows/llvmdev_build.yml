@@ -117,6 +117,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Xcode
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_14.2.app
+          xcrun --show-sdk-path
+
       - name: Install Miniconda
         run: |
           wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh
