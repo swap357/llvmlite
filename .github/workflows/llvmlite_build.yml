@@ -5,7 +5,6 @@ on:
     inputs:
       llvmdev_run_id:
         description: 'LLVMDEV workflow run ID to use artifacts from'
-        required: true
         type: string
 
 jobs:
@@ -22,6 +21,7 @@ jobs:
       
       # Download llvmdev artifact from specific workflow run
       - name: Download LLVMDEV Artifact
+        if: ${{ inputs.llvmdev_run_id != '' }}
         uses: actions/download-artifact@v4
         with:
           name: llvmdev-linux-x86_64
@@ -49,8 +49,13 @@ jobs:
             wheel \
             -y
           conda activate build_env
-          # Install local llvmdev package instead of from numba channel
-          conda install -y ./llvmdev-pkg/*.tar.bz2
+          if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
+            # Install local llvmdev package if workflow ID provided
+            conda install -y ./llvmdev-pkg/*.tar.bz2
+          else
+            # Install from numba channel if no workflow ID
+            conda install -y -c numba/label/ci llvmdev
+          fi
 
       - name: build_linux_64_py${{ matrix.python-version }}_npy1.11
         run: |
@@ -97,6 +102,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Download LLVMDEV Artifact
+        if: ${{ inputs.llvmdev_run_id != '' }}
         uses: actions/download-artifact@v4
         with:
           name: llvmdev-windows-x86_64
@@ -127,8 +133,13 @@ jobs:
             libxml2 \
             -y
           conda activate build_env
-          # Install local llvmdev package
-          conda install -y ./llvmdev-pkg/*.tar.bz2
+          if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
+            # Install local llvmdev package if workflow ID provided
+            conda install -y ./llvmdev-pkg/*.tar.bz2
+          else
+            # Install from numba channel if no workflow ID
+            conda install -y -c numba/label/ci llvmdev
+          fi
 
       - name: Set Environment Variables
         shell: bash
@@ -183,6 +194,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Download LLVMDEV Artifact
+        if: ${{ inputs.llvmdev_run_id != '' }}
         uses: actions/download-artifact@v4
         with:
           name: llvmdev-osx-64
@@ -210,8 +222,13 @@ jobs:
             wheel \
             -y
           conda activate build_env
-          # Install local llvmdev package
-          conda install -y ./llvmdev-pkg/*.tar.bz2
+          if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
+            # Install local llvmdev package if workflow ID provided
+            conda install -y ./llvmdev-pkg/*.tar.bz2
+          else
+            # Install from numba channel if no workflow ID
+            conda install -y -c numba/label/ci llvmdev
+          fi
 
       - name: build_osx_64_py${{ matrix.python-version }}_npy1.11
         run: |
