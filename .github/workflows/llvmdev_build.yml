@@ -137,20 +137,8 @@ jobs:
         run: |
           source $HOME/miniconda/bin/activate
           conda activate builder
-          
-          # Use system clang instead of conda's toolchain
-          unset CONDA_BUILD_CROSS_COMPILATION
-          export MACOSX_DEPLOYMENT_TARGET=10.9
-          export CONDA_BUILD_SYSROOT=$(xcrun --show-sdk-path)
-          export CC=$(xcrun -f clang)
-          export CXX=$(xcrun -f clang++)
-          export SDKROOT=$(xcrun --show-sdk-path)
-          export CFLAGS="-isysroot $SDKROOT"
-          export CXXFLAGS="-isysroot $SDKROOT"
-          export LDFLAGS="-isysroot $SDKROOT"
-          
           RECIPE_NAME=./conda-recipes/llvmdev
-          conda build $RECIPE_NAME
+          conda build $RECIPE_NAME --no-anaconda-upload
           echo "OUTPUT=$(conda build --output $RECIPE_NAME)" >> $GITHUB_ENV
 
       - name: Upload LLVMDEV artifacts

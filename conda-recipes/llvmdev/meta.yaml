@@ -28,8 +28,43 @@ build:
   script_env:
     - PY_VCRUNTIME_REDIST
   ignore_run_exports:
-    # Is static-linked
     - xar
+  script: |
+    # Use system clang instead of conda's toolchain
+    unset CONDA_BUILD_CROSS_COMPILATION
+    export MACOSX_DEPLOYMENT_TARGET=10.9
+    export SDKROOT=$(xcrun --show-sdk-path)
+    export CC=$(xcrun -f clang)
+    export CXX=$(xcrun -f clang++)
+    export CFLAGS="-isysroot $SDKROOT"
+    export CXXFLAGS="-isysroot $SDKROOT"
+    export LDFLAGS="-isysroot $SDKROOT"
+
+    mkdir build
+    cd build
+
+    cmake \
+      -G Ninja \
+      -DCMAKE_INSTALL_PREFIX=$PREFIX \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_ENABLE_PROJECTS="lld;libunwind;compiler-rt" \
+      -DLLVM_ENABLE_RTTI=ON \
+      -DLLVM_INCLUDE_TESTS=ON \
+      -DLLVM_INCLUDE_UTILS=ON \
+      -DLLVM_INSTALL_UTILS=ON \
+      -DLLVM_UTILS_INSTALL_DIR=libexec/llvm \
+      -DLLVM_ENABLE_Z3_SOLVER=OFF \
+      -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=WebAssembly \
+      -DCOMPILER_RT_BUILD_BUILTINS=ON \
+      -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
+      -DCOMPILER_RT_BUILD_XRAY=OFF \
+      -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
+      -DCOMPILER_RT_BUILD_PROFILE=OFF \
+      -DCOMPILER_RT_INCLUDE_TESTS=OFF \
+      ../llvm
+
+    ninja -j${CPU_COUNT}
+    ninja install
 
 requirements:
   build:
