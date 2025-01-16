@@ -46,6 +46,7 @@ jobs:
           source /c/Miniconda3/Scripts/activate
           conda create -n build_env \
             python=${{ matrix.python-version }} \
+            conda-build \
             setuptools \
             wheel \
             cmake \
@@ -60,30 +61,19 @@ jobs:
             conda install -y -c numba/label/ci llvmdev
           fi
 
-      - name: Set Environment Variables
+      - name: Build Conda Package
         shell: bash
         run: |
-          echo "CMAKE_GENERATOR=Visual Studio 16 2019" >> $GITHUB_ENV
-          echo "CMAKE_GENERATOR_PLATFORM=x64" >> $GITHUB_ENV
-          echo "LLVM_CONFIG=C:/Miniconda3/envs/build_env/Library/bin/llvm-config" >> $GITHUB_ENV
-          echo "LLVM_DIR=C:/Miniconda3/envs/build_env/Library/lib/cmake/llvm" >> $GITHUB_ENV
-          echo "LLVM_SHARED=1" >> $GITHUB_ENV
-          echo "LIBXML2_ROOT=C:/Miniconda3/envs/build_env/Library" >> $GITHUB_ENV
-        
-      - name: Build llvmlite
-        shell: cmd
-        run: |
-          call C:\Miniconda3\Scripts\activate.bat build_env
-          set DISTUTILS_USE_SDK=1
-          set VS_VERSION=2019
-          set VS_PLATFORM=x64
-          python setup.py clean
-          python setup.py bdist_wheel
-        
-      - name: Upload Artifacts
+          source /c/Miniconda3/Scripts/activate
+          conda activate build_env
+          RECIPE_NAME=./conda-recipes/llvmlite
+          conda build $RECIPE_NAME
+          echo "CONDA_PKG=$(conda build --output $RECIPE_NAME)" >> $GITHUB_ENV
+
+      - name: Upload Conda Package
         uses: actions/upload-artifact@v4
         with:
           name: llvmlite-win-64-py${{ matrix.python-version }}
-          path: dist/*.whl
+          path: ${{ env.CONDA_PKG }}
           retention-days: 7
           if-no-files-found: error
