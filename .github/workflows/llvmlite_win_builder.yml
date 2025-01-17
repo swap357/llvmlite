@@ -15,6 +15,8 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
+      env:
+        BUILD_PYTHON: "3.12"  # Use Python 3.12 for conda-build environment
       fail-fast: false
     
     steps:
@@ -62,8 +64,13 @@ jobs:
         shell: bash
         run: |
           source /c/Miniconda3/Scripts/activate
+          # Use Python 3.12 for build environment if target is 3.13
+          BUILD_PYTHON="${{ matrix.python-version }}"
+          if [ "$BUILD_PYTHON" = "3.13" ]; then
+            BUILD_PYTHON="${{ env.BUILD_PYTHON }}"
+          fi
           conda create -n build_env \
-            python=${{ matrix.python-version }} \
+            python=$BUILD_PYTHON \
             conda-build \
             setuptools \
             wheel \
@@ -79,13 +86,15 @@ jobs:
             # Install from numba channel if no workflow ID
             conda install -y -c numba/label/ci llvmdev
           fi
-          # Export environment variables for Visual Studio
+          # Export environment variables
           echo "VS_VERSION=2019" >> $GITHUB_ENV
           echo "VS_PLATFORM=x64" >> $GITHUB_ENV
           echo "LLVM_ENABLE_DIA_SDK=OFF" >> $GITHUB_ENV
           echo "CMAKE_GENERATOR=Visual Studio 16 2019" >> $GITHUB_ENV
           echo "CMAKE_GENERATOR_PLATFORM=x64" >> $GITHUB_ENV
           echo "CMAKE_GENERATOR_TOOLSET=v142" >> $GITHUB_ENV
+          # Set target Python version for conda-build
+          echo "CONDA_PY=${{ matrix.python-version }}" >> $GITHUB_ENV
 
       - name: Build Conda Package
         shell: bash
