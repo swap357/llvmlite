@@ -42,9 +42,12 @@ jobs:
             "--add", "Microsoft.VisualStudio.Workload.VCTools", `
             "--add", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", `
             "--add", "Microsoft.VisualStudio.Component.Windows10SDK", `
+            "--add", "Microsoft.VisualStudio.Component.Windows10SDK.19041", `
+            "--add", "Microsoft.VisualStudio.Component.Windows10SDK.18362", `
             "--add", "Microsoft.VisualStudio.Component.VC.DiagnosticTools", `
             "--add", "Microsoft.VisualStudio.Component.VC.ATL", `
             "--add", "Microsoft.VisualStudio.Component.VC.14.29", `
+            "--add", "Microsoft.VisualStudio.Component.Windows.SDK.18362", `
             "--add", "Microsoft.VisualStudio.Component.VC.ATLMFC" `
             -NoNewWindow -Wait
 
