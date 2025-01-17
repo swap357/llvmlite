@@ -31,23 +31,22 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Visual Studio
-        uses: microsoft/setup-msbuild@v1.1
-        with:
-          vs-version: '[16.11,16.12)'
-          vs-prerelease: false
-        
-      - name: Install Visual Studio Components
         shell: powershell
         run: |
-          # Install required VS components
-          $vsPath = & vswhere -latest -property installationPath
-          $vsInstallerPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
-          & $vsInstallerPath modify `
-            --installPath "$vsPath" `
-            --quiet --norestart --nocache `
-            --add Microsoft.VisualStudio.Component.VC.DiagnosticTools `
-            --add Microsoft.VisualStudio.Component.Windows10SDK
-        
+          Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vs_buildtools.exe -OutFile vs_buildtools.exe
+          Start-Process -FilePath .\vs_buildtools.exe -ArgumentList `
+            "--quiet", "--wait", "--norestart", "--nocache", `
+            "--installPath", "C:\BuildTools", `
+            "--add", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", `
+            "--add", "Microsoft.VisualStudio.Component.Windows10SDK", `
+            "--add", "Microsoft.VisualStudio.Component.VC.DiagnosticTools", `
+            "--add", "Microsoft.VisualStudio.Component.VC.ATL", `
+            "--add", "Microsoft.VisualStudio.Component.VC.ATLMFC" `
+            -NoNewWindow -Wait
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1.1
+
       - name: Install Miniconda
         shell: pwsh
         run: |
@@ -75,7 +74,9 @@ jobs:
             # Install from numba channel if no workflow ID
             conda install -y -c numba/label/ci llvmdev
           fi
-          # Set environment variable to disable DIA SDK requirement
+          # Export environment variables for Visual Studio
+          echo "VS_VERSION=2019" >> $GITHUB_ENV
+          echo "VS_PLATFORM=x64" >> $GITHUB_ENV
           echo "LLVM_ENABLE_DIA_SDK=OFF" >> $GITHUB_ENV
 
       - name: Build Conda Package
