@@ -82,13 +82,6 @@ jobs:
             vs2019_win-64 \
             -y
           conda activate build_env
-          if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
-            # Install local llvmdev package if workflow ID provided
-            conda install -y ./llvmdev-pkg/*.tar.bz2
-          else
-            # Install from numba channel if no workflow ID
-            conda install -y -c numba/label/ci llvmdev
-          fi
           # Export environment variables
           echo "VS_VERSION=2019" >> $GITHUB_ENV
           echo "VS_PLATFORM=x64" >> $GITHUB_ENV
@@ -108,7 +101,13 @@ jobs:
           source /c/Miniconda3/Scripts/activate
           conda activate build_env
           RECIPE_NAME=./conda-recipes/llvmlite
-          conda build $RECIPE_NAME
+          if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
+            # Use local channel when building with local llvmdev package
+            conda build --channel ./llvmdev-pkg $RECIPE_NAME
+          else
+            # Use numba channel when no local package
+            conda build --channel numba/label/ci $RECIPE_NAME
+          fi
           echo "CONDA_PKG=$(conda build --output $RECIPE_NAME)" >> $GITHUB_ENV
 
       - name: Upload Conda Package
