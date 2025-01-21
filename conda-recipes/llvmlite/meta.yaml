@@ -1,9 +1,9 @@
 {% set VERSION_SUFFIX = "" %} # debug version suffix, appended to the version
+{% set DEFAULT_VERSION = "0.45.0.dev0" %} # default version if GIT_DESCRIBE_TAG is not set
 
 package:
   name: llvmlite
-  # GIT_DESCRIBE_TAG may not be set
-  version: {{ "%s%s" % (environ.get('GIT_DESCRIBE_TAG', '').lstrip('v'), VERSION_SUFFIX) }}
+  version: {{ environ.get('GIT_DESCRIBE_TAG', DEFAULT_VERSION).lstrip('v') + VERSION_SUFFIX }}
 
 source:
   # Using the local source tree helps test building without pushing changes
