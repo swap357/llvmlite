@@ -17,9 +17,5 @@ set CMAKE_GENERATOR_TOOLKIT=v142
 @rem Ensure there are no build leftovers (CMake can complain)
 if exist ffi\build rmdir /S /Q ffi\build
 
-set "VS_VERSION=2019"
-set "VS_PLATFORM=x64"
-set "LLVM_ENABLE_DIA_SDK=OFF"
-%PYTHON% setup.py clean
 %PYTHON% setup.py install
 if errorlevel 1 exit 1
