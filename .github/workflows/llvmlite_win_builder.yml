@@ -12,11 +12,9 @@ jobs:
   windows:
     name: windows
     runs-on: windows-2019
-    env:
-      BUILD_PYTHON: "3.12"  # Use Python 3.12 for conda-build environment
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12"]
       fail-fast: false
     
     steps:
@@ -31,31 +29,7 @@ jobs:
           run-id: ${{ inputs.llvmdev_run_id }}
           repository: ${{ github.repository }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install Visual Studio
-        shell: powershell
-        run: |
-          Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vs_buildtools.exe -OutFile vs_buildtools.exe
-          Start-Process -FilePath .\vs_buildtools.exe -ArgumentList `
-            "--quiet", "--wait", "--norestart", "--nocache", `
-            "--installPath", "C:\BuildTools", `
-            "--add", "Microsoft.VisualStudio.Workload.VCTools", `
-            "--add", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", `
-            "--add", "Microsoft.VisualStudio.Component.Windows10SDK", `
-            "--add", "Microsoft.VisualStudio.Component.Windows10SDK.19041", `
-            "--add", "Microsoft.VisualStudio.Component.Windows10SDK.18362", `
-            "--add", "Microsoft.VisualStudio.Component.VC.DiagnosticTools", `
-            "--add", "Microsoft.VisualStudio.Component.VC.ATL", `
-            "--add", "Microsoft.VisualStudio.Component.VC.14.29", `
-            "--add", "Microsoft.VisualStudio.Component.Windows.SDK.18362", `
-            "--add", "Microsoft.VisualStudio.Component.VC.ATLMFC" `
-            -NoNewWindow -Wait
-
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v1.1
-        with:
-          msbuild-architecture: x64
-
+        
       - name: Install Miniconda
         shell: pwsh
         run: |
@@ -67,33 +41,14 @@ jobs:
         shell: bash
         run: |
           source /c/Miniconda3/Scripts/activate
-          # Use Python 3.12 for build environment if target is 3.13
-          BUILD_PYTHON="${{ matrix.python-version }}"
-          if [ "$BUILD_PYTHON" = "3.13" ]; then
-            BUILD_PYTHON="${{ env.BUILD_PYTHON }}"
-          fi
           conda create -n build_env \
-            python=$BUILD_PYTHON \
+            python=${{ matrix.python-version }} \
             conda-build \
             setuptools \
             wheel \
             cmake \
             libxml2 \
-            vs2019_win-64 \
             -y
-          conda activate build_env
-          # Export environment variables
-          echo "VS_VERSION=2019" >> $GITHUB_ENV
-          echo "VS_PLATFORM=x64" >> $GITHUB_ENV
-          echo "LLVM_ENABLE_DIA_SDK=OFF" >> $GITHUB_ENV
-          # Set explicit paths for Visual Studio BuildTools
-          echo "VSINSTALLDIR=C:\BuildTools" >> $GITHUB_ENV
-          echo "_VSINSTALLDIR=C:\BuildTools" >> $GITHUB_ENV
-          echo "CMAKE_GENERATOR=Visual Studio 16 2019" >> $GITHUB_ENV
-          echo "CMAKE_GENERATOR_PLATFORM=x64" >> $GITHUB_ENV
-          echo "CMAKE_GENERATOR_TOOLSET=v141" >> $GITHUB_ENV
-          # Set target Python version for conda-build
-          echo "CONDA_PY=${{ matrix.python-version }}" >> $GITHUB_ENV
 
       - name: Build Conda Package
         shell: bash
