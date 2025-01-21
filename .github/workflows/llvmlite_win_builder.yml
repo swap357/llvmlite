@@ -53,6 +53,10 @@ jobs:
           source /c/Miniconda3/Scripts/activate
           conda activate build_env
           RECIPE_NAME=./conda-recipes/llvmlite
+          
+          # Set version tag for conda build
+          export GIT_DESCRIBE_TAG=0.45.0dev0
+          
           if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
             # Use local channel when building with local llvmdev package
             conda build --channel ./llvmdev-pkg $RECIPE_NAME
