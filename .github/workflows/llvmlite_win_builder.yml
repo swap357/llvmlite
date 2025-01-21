@@ -44,10 +44,7 @@ jobs:
           conda create -n build_env \
             python=${{ matrix.python-version }} \
             conda-build \
-            setuptools \
-            wheel \
             cmake \
-            libxml2 \
             -y
 
       - name: Build Conda Package
