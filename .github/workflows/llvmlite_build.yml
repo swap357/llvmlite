@@ -7,11 +7,6 @@ on:
         description: 'llvmdev workflow run ID (optional)'
         required: false
         type: string
-      upload:
-        description: 'Upload wheels'
-        required: false
-        type: boolean
-        default: false
 
 env:
   CONDA_CHANNEL: numba
