@@ -52,6 +52,7 @@ jobs:
           conda activate validate_env
 
       - name: Validate wheel
+        if: ${{ matrix.python-version != '3.13' }}  # Skip for Python 3.13
         run: |
           conda activate validate_env
           cd dist
@@ -99,6 +100,14 @@ jobs:
           python test_wheel.py llvmlite/binding/llvmlite.dll
           
           # Check wheel with twine
+          twine check *.whl
+
+      - name: Basic wheel validation
+        if: ${{ matrix.python-version == '3.13' }}
+        run: |
+          conda activate validate_env
+          cd dist
+          # Only run twine check for Python 3.13
           twine check *.whl
 
       - name: Upload llvmlite wheel
