@@ -35,12 +35,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           channels: numba/label/win64_wheel,defaults,numba
-          activate-environment: build_env
-          environment-file: false
-          auto-activate-base: false
 
       - name: Install build dependencies
-        run: conda install -n build_env llvmdev=15 cmake --yes
+        run: conda install llvmdev=15 cmake --yes
 
       - name: Build wheel
         run: |
@@ -50,12 +47,9 @@ jobs:
       - uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: "3.12"
-          activate-environment: validate_env
-          environment-file: false
-          auto-activate-base: false
 
       - name: Install validation dependencies
-        run: conda install -n validate_env py-lief "wheel>=0.32" twine keyring>=15.1 rfc3986>=1.4.0 --yes
+        run: conda install py-lief "wheel>=0.32" twine keyring>=15.1 rfc3986>=1.4.0 --yes
 
       - name: Validate wheel
         run: |
