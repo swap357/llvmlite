@@ -37,68 +37,12 @@ jobs:
           channels: numba/label/win64_wheel,defaults,numba
 
       - name: Install build dependencies
-        run: conda install llvmdev=15 cmake --yes
+        run: conda install llvmdev=15
 
       - name: Build wheel
         run: |
           conda activate build_env
           python setup.py bdist_wheel
-
-      - uses: conda-incubator/setup-miniconda@v3
-        with:
-          python-version: "3.12"
-
-      - name: Install validation dependencies
-        run: conda install py-lief "wheel>=0.32" twine keyring>=15.1 rfc3986>=1.4.0 --yes
-
-      - name: Validate wheel
-        run: |
-          cd dist
-          
-          # Create validation script
-          cat > test_wheel.py <<EOF
-          import lief
-          import pathlib
-          
-          for path in pathlib.Path('.').rglob("**/*.dll"):
-              print("path", path)
-              dll = lief.PE.parse(str(path))
-          
-              if hasattr(dll, "delay_imports"):
-                  delay_imports = {x.name for x in dll.delay_imports}
-                  print("Delay imports:", delay_imports)
-                  expected_delay_imports = {'SHELL32.dll', 'ole32.dll'}
-                  assert delay_imports == expected_delay_imports, f"Unexpected delay imports: {delay_imports}"
-          
-              imports = {x.name for x in dll.imports}
-              print("Regular imports:", imports)
-              expected_imports = {
-                  'ADVAPI32.dll',
-                  'KERNEL32.dll',
-                  'MSVCP140.dll',
-                  'VCRUNTIME140.dll',
-                  'VCRUNTIME140_1.dll',
-                  'api-ms-win-crt-convert-l1-1-0.dll',
-                  'api-ms-win-crt-environment-l1-1-0.dll',
-                  'api-ms-win-crt-heap-l1-1-0.dll',
-                  'api-ms-win-crt-locale-l1-1-0.dll',
-                  'api-ms-win-crt-math-l1-1-0.dll',
-                  'api-ms-win-crt-runtime-l1-1-0.dll',
-                  'api-ms-win-crt-stdio-l1-1-0.dll',
-                  'api-ms-win-crt-string-l1-1-0.dll',
-                  'api-ms-win-crt-time-l1-1-0.dll',
-                  'api-ms-win-crt-utility-l1-1-0.dll',
-              }
-              assert imports == expected_imports, f"Unexpected imports: {imports}"
-          EOF
-          
-          # Unpack and validate wheel
-          WHL_FILE=$(ls *.whl)
-          wheel unpack $WHL_FILE
-          python test_wheel.py llvmlite/binding/llvmlite.dll
-          
-          # Check wheel with twine
-          twine check *.whl
 
       - name: Upload llvmlite wheel
         uses: actions/upload-artifact@v4
@@ -109,9 +53,41 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  win-64-validate:
+    name: win-64-validate
+    needs: win-64-build
+    runs-on: windows-2019
+    defaults:
+      run:
+        shell: bash -elx {0}
+    steps:
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: "3.12"
+
+      - name: Install validation dependencies
+        run: conda install py-lief wheel twine keyring rfc3986
+
+      - name: Download llvmlite wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: llvmlite-win-64-*
+          path: dist
+          merge-multiple: true
+
+      - name: Validate wheels
+        run: |
+          cd dist
+          for WHL_FILE in *.whl; do
+            wheel unpack $WHL_FILE
+            python test_wheel.py llvmlite/binding/llvmlite.dll
+            twine check $WHL_FILE
+          done
+
   win-64-test:
     name: win-64-test
-    needs: win-64-build
+    needs: win-64-validate
     runs-on: windows-2019
     defaults:
       run:
@@ -122,9 +98,6 @@ jobs:
       fail-fast: false
 
     steps:
-      - name: Clone repository
-        uses: actions/checkout@v4
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -138,10 +111,7 @@ jobs:
 
       - name: Install and test
         run: |
-          pip install pytest dist/*.whl
-          # Add debugging to check DLL location
-          python -c "import llvmlite; print('llvmlite location:', llvmlite.__file__)"
-          python -c "from pathlib import Path; print('DLL files:', list(Path('.').rglob('**/*.dll')))"
+          pip install dist/*.whl
           # Add the llvmlite DLL directory to PATH
           export PATH="$PATH:$(python -c 'import os,llvmlite; print(os.path.dirname(llvmlite.__file__) + "/binding")')"
-          pytest llvmlite/tests
+          python -m llvmlite.tests
