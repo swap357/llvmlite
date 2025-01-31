@@ -113,7 +113,14 @@ jobs:
 
       - name: Install and test
         run: |
+          # First add the wheel's directory to PYTHONPATH so pip can find it
+          export PYTHONPATH=$PWD/dist:$PYTHONPATH
+          # Install dependencies first
+          pip install wheel
+          # Unpack the wheel to get the DLL path
+          cd dist && wheel unpack *.whl && cd ..
+          # Add the DLL directory to PATH before installing
+          export PATH="$PATH:$PWD/dist/llvmlite-*/llvmlite/binding"
+          # Now install and test
           pip install dist/*.whl
-          # Add the llvmlite DLL directory to PATH
-          export PATH="$PATH:$(python -c 'import os,llvmlite; print(os.path.dirname(llvmlite.__file__) + "/binding")')"
           python -m llvmlite.tests
