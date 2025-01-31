@@ -37,7 +37,7 @@ jobs:
           channels: numba/label/win64_wheel,defaults,numba
 
       - name: Install build dependencies
-        run: conda install llvmdev=15
+        run: conda install llvmdev=15 cmake libxml2
 
       - name: Build wheel
         run: |
