@@ -41,7 +41,6 @@ jobs:
 
       - name: Build wheel
         run: |
-          conda activate build_env
           python setup.py bdist_wheel
 
       - name: Upload llvmlite wheel
@@ -81,7 +80,7 @@ jobs:
           cd dist
           for WHL_FILE in *.whl; do
             wheel unpack $WHL_FILE
-            python test_wheel.py llvmlite/binding/llvmlite.dll
+            python buildscripts/github/validate_win64_wheel.py llvmlite/binding/llvmlite.dll
             twine check $WHL_FILE
           done
 
