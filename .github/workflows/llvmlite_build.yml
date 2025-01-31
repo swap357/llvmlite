@@ -8,10 +8,6 @@ on:
         required: false
         type: string
 
-env:
-  CONDA_CHANNEL: numba
-  CONDA_LABEL: ci
-
 jobs:
   win-64-build:
     name: win-64-build
@@ -124,7 +120,7 @@ jobs:
           # Copy DLL from wheel to site-packages
           cd dist
           wheel unpack *.whl
-          WHEEL_DIR=$(ls -d llvmlite-*)
+          WHEEL_DIR=$(ls -d llvmlite-* | head -n1 | tr -d '\n')
           mkdir -p "$SITE_PACKAGES/llvmlite/binding"
           cp "$WHEEL_DIR/llvmlite/binding/llvmlite.dll" "$SITE_PACKAGES/llvmlite/binding/"
           cd ..
