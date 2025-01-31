@@ -30,9 +30,10 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: ${{ matrix.python-version }}
+          conda-remove-defaults: true
 
       - name: Install build dependencies
-        run: conda install -c numba/label/win64_wheel -c defaults llvmdev=15 cmake libxml2
+        run: conda install -c numba/label/win64_wheel llvmdev=15 cmake libxml2
 
       - name: Build wheel
         run: |
@@ -66,6 +67,7 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: 3.12
+          conda-remove-defaults: true
 
       - name: Install validation dependencies
         run: conda install -c defaults py-lief wheel twine keyring rfc3986
