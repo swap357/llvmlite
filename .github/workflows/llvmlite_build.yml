@@ -37,7 +37,7 @@ jobs:
 
       - name: Create build environment
         run: |
-          conda create -n build_env --yes -c numba/label/win64_wheel -c numba python=${{ matrix.python-version }} llvmdev=15
+          conda create -n build_env --yes -c numba/label/win64_wheel -c defaults -c numba python=${{ matrix.python-version }} llvmdev=15
           conda activate build_env
           conda install cmake --yes
 
