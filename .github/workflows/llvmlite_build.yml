@@ -113,7 +113,9 @@ jobs:
 
       - name: Install and test
         run: |
-          # Install the wheel first
+          pip install wheel
+          
+          # Install the wheel
           pip install dist/*.whl
           
           # Get Python site-packages directory
@@ -122,11 +124,11 @@ jobs:
           # Copy DLL from wheel to site-packages
           cd dist
           wheel unpack *.whl
-          cp llvmlite-*/llvmlite/binding/llvmlite.dll "$SITE_PACKAGES/llvmlite/binding/"
+          cp llvmlite-*/llvmlite/binding/llvmlite.dll "$SITE_PACKAGES/lib/site-packages/llvmlite/binding/"
           cd ..
           
           # Add both potential DLL locations to PATH
-          export PATH="$PATH:$SITE_PACKAGES/llvmlite/binding:$PWD/dist/llvmlite-*/llvmlite/binding"
+          export PATH="$PATH:$SITE_PACKAGES/lib/site-packages/llvmlite/binding:$PWD/dist/llvmlite-*/llvmlite/binding"
           
           # Run tests
           python -m llvmlite.tests
