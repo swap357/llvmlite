@@ -30,10 +30,9 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: ${{ matrix.python-version }}
-          channels: numba/label/win64_wheel,numba
 
       - name: Install build dependencies
-        run: conda install -c defaults llvmdev=15 cmake libxml2
+        run: conda install -c numba/label/win64_wheel -c defaults llvmdev=15 cmake libxml2
 
       - name: Build wheel
         run: |
