@@ -86,8 +86,14 @@ jobs:
         with:
           name: llvmlite-linux-64-py${{ matrix.python-version }}
 
-      - name: Install conda-build and llvmlite
+      - name: Debug artifact contents
         run: |
-          conda install conda-build
+          echo "Current directory: $PWD"
+          echo "Listing current directory contents:"
+          ls -la
+          
+      - name: Install conda-build
+        run: conda install conda-build
+          
       - name: Run tests
         run: conda build --test llvmlite*.conda
