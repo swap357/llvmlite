@@ -91,9 +91,11 @@ jobs:
           echo "Current directory: $PWD"
           echo "Listing current directory contents:"
           ls -la
+          echo "Listing linux-64 directory contents:"
+          ls -la linux-64/
           
       - name: Install conda-build
         run: conda install conda-build
           
       - name: Run tests
-        run: conda build --test llvmlite*.conda
+        run: conda build --test linux-64/llvmlite*.conda
