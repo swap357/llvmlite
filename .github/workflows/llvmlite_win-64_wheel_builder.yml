@@ -1,13 +1,5 @@
 name: llvmlite_win-64_wheel_builder
 
-env:
-  CONDA_CHANNEL_NUMBA: numba/label/win64_wheel
-  LLVMDEV_VERSION: "15"
-  LOCAL_ARTIFACT_PATH: D:/a/llvmlite/llvmlite/llvmdev_conda_packages
-  PYTHON_VERSIONS: '["3.10", "3.11", "3.12", "3.13"]'
-  ARTIFACT_RETENTION_DAYS: 7
-  WINDOWS_IMAGE: windows-2019
-
 on:
   push:
     branches:
@@ -31,16 +23,23 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
+env:
+  CONDA_CHANNEL_NUMBA: numba/label/win64_wheel
+  LLVMDEV_VERSION: "15"
+  LOCAL_ARTIFACT_PATH: D:/a/llvmlite/llvmlite/llvmdev_conda_packages
+  PYTHON_VERSIONS: '["3.10", "3.11", "3.12", "3.13"]'
+  ARTIFACT_RETENTION_DAYS: 7
+
 jobs:
   win-64-build:
     name: win-64-build
-    runs-on: ${{ env.WINDOWS_IMAGE }}
+    runs-on: windows-2019
     defaults:
       run:
         shell: bash -el {0}
     strategy:
       matrix:
-        python-version: ${{ fromJson(env.PYTHON_VERSIONS) }}
+        python-version: ${{ fromJSON(env.PYTHON_VERSIONS) }}
       fail-fast: false
 
     steps:
@@ -91,13 +90,13 @@ jobs:
   win-64-validate:
     name: win-64-validate
     needs: win-64-build
-    runs-on: ${{ env.WINDOWS_IMAGE }}
+    runs-on: ${{ vars.WINDOWS_IMAGE }}
     defaults:
       run:
         shell: bash -el {0}
     strategy:
       matrix:
-        python-version: ${{ fromJson(env.PYTHON_VERSIONS) }}
+        python-version: ${{ fromJSON(vars.PYTHON_VERSIONS) }}
       fail-fast: false
     steps:
       - name: Clone repository
@@ -132,13 +131,13 @@ jobs:
   win-64-test:
     name: win-64-test
     needs: win-64-validate
-    runs-on: ${{ env.WINDOWS_IMAGE }}
+    runs-on: ${{ vars.WINDOWS_IMAGE }}
     defaults:
       run:
         shell: bash -el {0}
     strategy:
       matrix:
-        python-version: ${{ fromJson(env.PYTHON_VERSIONS) }}
+        python-version: ${{ fromJSON(vars.PYTHON_VERSIONS) }}
       fail-fast: false
 
     steps:
