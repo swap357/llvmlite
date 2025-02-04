@@ -27,7 +27,6 @@ env:
   CONDA_CHANNEL_NUMBA: numba/label/win64_wheel
   LLVMDEV_VERSION: "15"
   LOCAL_ARTIFACT_PATH: D:/a/llvmlite/llvmlite/llvmdev_conda_packages
-  PYTHON_VERSIONS: '["3.10", "3.11", "3.12", "3.13"]'
   ARTIFACT_RETENTION_DAYS: 7
 
 jobs:
@@ -39,7 +38,7 @@ jobs:
         shell: bash -el {0}
     strategy:
       matrix:
-        python-version: ${{ fromJSON(env.PYTHON_VERSIONS) }}
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
       fail-fast: false
 
     steps:
@@ -90,13 +89,13 @@ jobs:
   win-64-validate:
     name: win-64-validate
     needs: win-64-build
-    runs-on: ${{ vars.WINDOWS_IMAGE }}
+    runs-on: windows-2019
     defaults:
       run:
         shell: bash -el {0}
     strategy:
       matrix:
-        python-version: ${{ fromJSON(vars.PYTHON_VERSIONS) }}
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
       fail-fast: false
     steps:
       - name: Clone repository
@@ -131,13 +130,13 @@ jobs:
   win-64-test:
     name: win-64-test
     needs: win-64-validate
-    runs-on: ${{ vars.WINDOWS_IMAGE }}
+    runs-on: windows-2019
     defaults:
       run:
         shell: bash -el {0}
     strategy:
       matrix:
-        python-version: ${{ fromJSON(vars.PYTHON_VERSIONS) }}
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
       fail-fast: false
 
     steps:
