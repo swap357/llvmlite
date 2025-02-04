@@ -27,6 +27,7 @@ env:
   CONDA_CHANNEL_NUMBA: numba/label/win64_wheel
   LLVMDEV_VERSION: "15"
   LOCAL_ARTIFACT_PATH: D:/a/llvmlite/llvmlite/llvmdev_conda_packages
+  VALIDATION_PYTHON_VERSION: "3.12"
   ARTIFACT_RETENTION_DAYS: 7
 
 jobs:
@@ -104,7 +105,7 @@ jobs:
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ env.VALIDATION_PYTHON_VERSION }}
           conda-remove-defaults: true
           auto-update-conda: true
           auto-activate-base: true
