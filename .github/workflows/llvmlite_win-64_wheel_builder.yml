@@ -62,9 +62,10 @@ jobs:
       - name: Install build dependencies
         run: |
           if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
-              conda install -c file:///D:/a/llvmlite/llvmlite/llvmdev_conda_packages llvmdev cmake libxml2
+              conda install -c file:///D:/a/llvmlite/llvmlite/llvmdev_conda_packages llvmdev --no-deps
+              conda install -c numba/label/win64_wheel --no-deps cmake
           else
-              conda install -c numba/label/win64_wheel llvmdev=15 cmake libxml2
+              conda install -c numba/label/win64_wheel llvmdev=15 cmake
           fi
 
       - name: Build wheel
