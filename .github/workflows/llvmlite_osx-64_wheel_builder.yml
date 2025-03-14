@@ -207,6 +207,9 @@ jobs:
 
       - name: Install and test
         run: |
+          # Install required packages for debugging
+          pip install wheel
+          
           # Debug platform information
           echo "=== Platform Information ==="
           python -c "import platform; print(f'Python version: {platform.python_version()}'); print(f'Platform: {platform.platform()}'); print(f'Machine: {platform.machine()}'); print(f'System: {platform.system()}')"
@@ -218,12 +221,22 @@ jobs:
             echo "Wheel filename: $whl"
             # Extract wheel tags using wheel package
             python -c "from wheel.pkginfo import read_pkg_info; print(read_pkg_info('$whl').get('Tag'))"
+            # Alternative way to inspect wheel
+            echo "Wheel contents:"
+            wheel unpack "$whl" -d /tmp/wheel_inspect
+            echo "Wheel directory structure:"
+            find /tmp/wheel_inspect -type d
+            rm -rf /tmp/wheel_inspect
           done
           
           # Debug pip version and supported platforms
           echo "=== Pip Information ==="
           pip --version
           python -c "import pip; print(f'Pip supported platforms: {pip._internal.utils.compatibility_tags.get_supported()}')"
+          
+          # Debug wheel compatibility
+          echo "=== Wheel Compatibility Check ==="
+          python -c "import sys; from packaging.tags import sys_tags; print('System supported tags:'); [print(tag) for tag in sys_tags()]"
           
           # Try to install with verbose output
           echo "=== Attempting pip install with verbose output ==="
