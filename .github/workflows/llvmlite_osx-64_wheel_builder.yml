@@ -207,7 +207,28 @@ jobs:
 
       - name: Install and test
         run: |
-          pip install dist/*.whl
+          # Debug platform information
+          echo "=== Platform Information ==="
+          python -c "import platform; print(f'Python version: {platform.python_version()}'); print(f'Platform: {platform.platform()}'); print(f'Machine: {platform.machine()}'); print(f'System: {platform.system()}')"
+          
+          # Debug wheel information
+          echo "=== Wheel Information ==="
+          cd dist
+          for whl in *.whl; do
+            echo "Wheel filename: $whl"
+            # Extract wheel tags using wheel package
+            python -c "from wheel.pkginfo import read_pkg_info; print(read_pkg_info('$whl').get('Tag'))"
+          done
+          
+          # Debug pip version and supported platforms
+          echo "=== Pip Information ==="
+          pip --version
+          python -c "import pip; print(f'Pip supported platforms: {pip._internal.utils.compatibility_tags.get_supported()}')"
+          
+          # Try to install with verbose output
+          echo "=== Attempting pip install with verbose output ==="
+          pip install -v dist/*.whl
+          
           # Basic import test
           python -c "import llvmlite.binding as llvm; print(f'LLVM version: {llvm.get_version()}')"
           # Run full test suite
