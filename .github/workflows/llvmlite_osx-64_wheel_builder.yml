@@ -103,8 +103,12 @@ jobs:
           cd ..
           wheel pack "$target_dir"
           
-          # Update platform tag
-          python -m wheel tags --remove --platform-tag=macosx_13_0_x86_64 ./*.whl
+          # Check and update platform tag
+          python -c "from wheel.pkginfo import read_pkg_info_bytes; from zipfile import ZipFile; print(read_pkg_info_bytes(ZipFile('./dist/*.whl').read('*.dist-info/WHEEL')))"
+          python -m wheel tags --remove --platform-tag=macosx_13_0_x86_64 ./dist/*.whl
+          
+          echo "=== Final wheel filename ==="
+          ls -la *.whl
 
       - name: Upload llvmlite wheel
         uses: actions/upload-artifact@v4
