@@ -207,8 +207,17 @@ jobs:
 
       - name: Install and test
         run: |
+          # Debug Python environment
+          echo "=== Python Environment Debug ==="
+          which python
+          python -c "import sys; print(f'Python executable: {sys.executable}')"
+          echo "PATH=$PATH"
+          
+          # Ensure we're using the correct Python
+          export PATH="$(dirname $(which python)):$PATH"
+          
           # Install required packages for debugging
-          pip install wheel
+          python -m pip install --upgrade pip wheel
           
           # Debug platform information
           echo "=== Platform Information ==="
@@ -219,8 +228,8 @@ jobs:
           cd dist
           for whl in *.whl; do
             echo "Wheel filename: $whl"
-            # Extract wheel tags using wheel package
-            python -c "from wheel.pkginfo import read_pkg_info; print(read_pkg_info('$whl').get('Tag'))"
+            # Use wheel command directly instead of Python API
+            wheel show "$whl"
             # Alternative way to inspect wheel
             echo "Wheel contents:"
             wheel unpack "$whl" -d /tmp/wheel_inspect
@@ -231,7 +240,7 @@ jobs:
           
           # Debug pip version and supported platforms
           echo "=== Pip Information ==="
-          pip --version
+          python -m pip --version
           python -c "import pip; print(f'Pip supported platforms: {pip._internal.utils.compatibility_tags.get_supported()}')"
           
           # Debug wheel compatibility
@@ -240,7 +249,7 @@ jobs:
           
           # Try to install with verbose output
           echo "=== Attempting pip install with verbose output ==="
-          pip install -v dist/*.whl
+          python -m pip install -v dist/*.whl
           
           # Basic import test
           python -c "import llvmlite.binding as llvm; print(f'LLVM version: {llvm.get_version()}')"
