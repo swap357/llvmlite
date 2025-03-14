@@ -207,32 +207,30 @@ jobs:
 
       - name: Install and test
         run: |
-          # Debug Python environment
-          echo "=== Python Environment Debug ==="
-          which python
-          python -c "import sys; print(f'Python executable: {sys.executable}')"
-          echo "PATH=$PATH"
+          # Get the Python executable path from GitHub Actions cache
+          PYTHON_PATH="/Users/runner/hostedtoolcache/Python/${{ matrix.python-version }}/x64/bin/python"
+          echo "Using Python from: $PYTHON_PATH"
+          $PYTHON_PATH --version
           
           # Ensure we're using the correct Python
-          export PATH="$(dirname $(which python)):$PATH"
+          export PATH="/Users/runner/hostedtoolcache/Python/${{ matrix.python-version }}/x64/bin:$PATH"
+          export PYTHONPATH="/Users/runner/hostedtoolcache/Python/${{ matrix.python-version }}/x64/lib/python${{ matrix.python-version }}/site-packages"
           
           # Install required packages for debugging
-          python -m pip install --upgrade pip wheel
+          $PYTHON_PATH -m pip install --upgrade pip wheel
           
           # Debug platform information
           echo "=== Platform Information ==="
-          python -c "import platform; print(f'Python version: {platform.python_version()}'); print(f'Platform: {platform.platform()}'); print(f'Machine: {platform.machine()}'); print(f'System: {platform.system()}')"
+          $PYTHON_PATH -c "import platform; print(f'Python version: {platform.python_version()}'); print(f'Platform: {platform.platform()}'); print(f'Machine: {platform.machine()}'); print(f'System: {platform.system()}')"
           
           # Debug wheel information
           echo "=== Wheel Information ==="
           cd dist
           for whl in *.whl; do
             echo "Wheel filename: $whl"
-            # Use wheel command directly instead of Python API
-            wheel show "$whl"
-            # Alternative way to inspect wheel
+            $PYTHON_PATH -m wheel tags "$whl"
             echo "Wheel contents:"
-            wheel unpack "$whl" -d /tmp/wheel_inspect
+            $PYTHON_PATH -m wheel unpack "$whl" -d /tmp/wheel_inspect
             echo "Wheel directory structure:"
             find /tmp/wheel_inspect -type d
             rm -rf /tmp/wheel_inspect
@@ -240,18 +238,18 @@ jobs:
           
           # Debug pip version and supported platforms
           echo "=== Pip Information ==="
-          python -m pip --version
-          python -c "import pip; print(f'Pip supported platforms: {pip._internal.utils.compatibility_tags.get_supported()}')"
+          $PYTHON_PATH -m pip --version
+          $PYTHON_PATH -c "import pip; print(f'Pip supported platforms: {pip._internal.utils.compatibility_tags.get_supported()}')"
           
           # Debug wheel compatibility
           echo "=== Wheel Compatibility Check ==="
-          python -c "import sys; from packaging.tags import sys_tags; print('System supported tags:'); [print(tag) for tag in sys_tags()]"
+          $PYTHON_PATH -c "import sys; from packaging.tags import sys_tags; print('System supported tags:'); [print(tag) for tag in sys_tags()]"
           
           # Try to install with verbose output
           echo "=== Attempting pip install with verbose output ==="
-          python -m pip install -v dist/*.whl
+          $PYTHON_PATH -m pip install -v dist/*.whl
           
           # Basic import test
-          python -c "import llvmlite.binding as llvm; print(f'LLVM version: {llvm.get_version()}')"
+          $PYTHON_PATH -c "import llvmlite.binding as llvm; print(f'LLVM version: {llvm.get_version()}')"
           # Run full test suite
-          python -m llvmlite.tests
+          $PYTHON_PATH -m llvmlite.tests
