@@ -102,10 +102,7 @@ jobs:
           echo "=== Write back to wheel ==="
           cd ..
           wheel pack "$target_dir"
-          
-          # Check and update platform tag
-          python -m wheel tags --remove --platform-tag=macosx_13_0_x86_64 ./dist/*.whl
-          
+          python -m wheel tags --remove --platform-tag=macosx_10_15_x86_64 ./llvmlite*.whl
           echo "=== Final wheel filename ==="
           ls -la *.whl
 
