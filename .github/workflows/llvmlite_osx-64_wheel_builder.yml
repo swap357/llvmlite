@@ -207,13 +207,17 @@ jobs:
 
       - name: Install and test
         run: |
+          # Debug pip information first
+          echo "=== Initial Pip Information ==="
+          python3 -m pip debug --verbose
+          
           # Get the Python executable path from GitHub Actions cache
-          PYTHON_PATH="/Users/runner/hostedtoolcache/Python/${{ matrix.python-version }}/x64/bin/python"
+          PYTHON_PATH="/opt/hostedtoolcache/Python/${{ matrix.python-version }}/x64/bin/python"
           echo "Using Python from: $PYTHON_PATH"
           $PYTHON_PATH --version
           
           # Ensure we're using the correct Python
-          export PATH="/Users/runner/hostedtoolcache/Python/${{ matrix.python-version }}/x64/bin:$PATH"
+          export PATH="/opt/hostedtoolcache/Python/${{ matrix.python-version }}/x64/bin:$PATH"
           
           # Install required packages for debugging
           $PYTHON_PATH -m pip install --upgrade pip wheel
