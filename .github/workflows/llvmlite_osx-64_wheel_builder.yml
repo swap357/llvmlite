@@ -238,6 +238,7 @@ jobs:
           # Debug pip version and supported platforms
           echo "=== Pip Information ==="
           $PYTHON_PATH -m pip --version
+          $PYTHON_PATH -m pip debug --verbose
           $PYTHON_PATH -c "import sys; from packaging.tags import sys_tags; print('System supported tags:'); [print(tag) for tag in sys_tags()]"
           
           # Try to install with verbose output
