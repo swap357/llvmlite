@@ -123,6 +123,7 @@ jobs:
           done
 
       - name: Generate wheel contents report
+        if: matrix.python-version == '3.10'
         run: |
           mkdir -p wheel_reports
           cd dist
@@ -131,21 +132,15 @@ jobs:
             python "$GITHUB_WORKSPACE"/buildscripts/github/dump_wheel_contents.py "$WHL_FILE" -o "../wheel_reports/${WHL_FILE%.whl}_contents.txt"
           done
 
-      - name: Upload wheel reports
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
-        with:
-          name: wheel-reports
-          path: wheel_reports
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
-
       - name: Compare with previous release
+        if: matrix.python-version == '3.10'
         run: |
           # Download previous release wheel
           PREV_VERSION="0.44.0"  # Update this as needed
           PYTHON_VERSION=$(echo ${{ matrix.python-version }} | tr -d '.')
           pip download llvmlite==$PREV_VERSION --only-binary=:all: --platform win_amd64 --python-version ${{ matrix.python-version }}
           
-          # Compare wheels
+          # Compare wheels and generate reports
           for WHL_FILE in dist/*.whl; do
             echo "Comparing current build with version $PREV_VERSION"
             PREV_WHEEL="llvmlite-${PREV_VERSION}-cp${PYTHON_VERSION}-cp${PYTHON_VERSION}-win_amd64.whl"
@@ -153,6 +148,11 @@ jobs:
               echo "Comparing wheels:"
               echo "Wheel 1: $PREV_WHEEL"
               echo "Wheel 2: $WHL_FILE"
+              
+              # Generate report for PyPI wheel
+              python "$GITHUB_WORKSPACE"/buildscripts/github/dump_wheel_contents.py "$PREV_WHEEL" -o "../wheel_reports/${PREV_WHEEL%.whl}_contents.txt"
+              
+              # Compare DLL imports
               python "$GITHUB_WORKSPACE"/buildscripts/github/compare_win64_wheels.py \
                 "$PREV_WHEEL" \
                 "$WHL_FILE"
@@ -160,6 +160,14 @@ jobs:
               echo "Warning: Previous version wheel $PREV_WHEEL not found"
             fi
           done
+
+      - name: Upload wheel reports
+        if: matrix.python-version == '3.10'
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
+        with:
+          name: wheel-reports
+          path: wheel_reports
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
   win-64-test:
     name: win-64-test
