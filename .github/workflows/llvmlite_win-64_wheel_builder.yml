@@ -129,11 +129,19 @@ jobs:
           pip download llvmlite==$PREV_VERSION --only-binary=:all: --platform win_amd64 --python-version ${{ matrix.python-version }}
           
           # Compare wheels
-          for WHL_FILE in *.whl; do
+          for WHL_FILE in dist/*.whl; do
             echo "Comparing current build with version $PREV_VERSION"
-            python "$GITHUB_WORKSPACE"/buildscripts/github/compare_win64_wheels.py \
-              "llvmlite-$PREV_VERSION-py3-none-win_amd64.whl" \
-              "$WHL_FILE"
+            PREV_WHEEL="llvmlite-${PREV_VERSION}-cp${matrix.python-version//.}-cp${matrix.python-version//.}-win_amd64.whl"
+            if [ -f "$PREV_WHEEL" ]; then
+              echo "Comparing wheels:"
+              echo "Wheel 1: $PREV_WHEEL"
+              echo "Wheel 2: $WHL_FILE"
+              python "$GITHUB_WORKSPACE"/buildscripts/github/compare_win64_wheels.py \
+                "$PREV_WHEEL" \
+                "$WHL_FILE"
+            else
+              echo "Warning: Previous version wheel $PREV_WHEEL not found"
+            fi
           done
 
   win-64-test:
