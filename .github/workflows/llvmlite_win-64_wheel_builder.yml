@@ -122,6 +122,20 @@ jobs:
             twine check "$WHL_FILE"
           done
 
+      - name: Compare with previous release
+        run: |
+          # Download previous release wheel
+          PREV_VERSION="0.44.0"  # Update this as needed
+          pip download llvmlite==$PREV_VERSION --only-binary=:all: --platform win_amd64 --python-version ${{ matrix.python-version }}
+          
+          # Compare wheels
+          for WHL_FILE in *.whl; do
+            echo "Comparing current build with version $PREV_VERSION"
+            python "$GITHUB_WORKSPACE"/buildscripts/github/compare_win64_wheels.py \
+              "llvmlite-$PREV_VERSION-py3-none-win_amd64.whl" \
+              "$WHL_FILE"
+          done
+
   win-64-test:
     name: win-64-test
     needs: win-64-validate
