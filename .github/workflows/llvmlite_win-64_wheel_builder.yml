@@ -126,12 +126,13 @@ jobs:
         run: |
           # Download previous release wheel
           PREV_VERSION="0.44.0"  # Update this as needed
+          PYTHON_VERSION=$(echo ${{ matrix.python-version }} | tr -d '.')
           pip download llvmlite==$PREV_VERSION --only-binary=:all: --platform win_amd64 --python-version ${{ matrix.python-version }}
           
           # Compare wheels
           for WHL_FILE in dist/*.whl; do
             echo "Comparing current build with version $PREV_VERSION"
-            PREV_WHEEL="llvmlite-${PREV_VERSION}-cp${matrix.python-version//.}-cp${matrix.python-version//.}-win_amd64.whl"
+            PREV_WHEEL="llvmlite-${PREV_VERSION}-cp${PYTHON_VERSION}-cp${PYTHON_VERSION}-win_amd64.whl"
             if [ -f "$PREV_WHEEL" ]; then
               echo "Comparing wheels:"
               echo "Wheel 1: $PREV_WHEEL"
