@@ -4,6 +4,7 @@ import os
 import argparse
 import lief
 from pathlib import Path
+import platform
 
 def get_dll_imports(dll_path):
     """Extract imports from a DLL file."""
@@ -19,7 +20,7 @@ def get_dll_imports(dll_path):
     return sorted(list(imports)), sorted(list(delay_imports))
 
 def dump_wheel_contents(wheel_path, output_path):
-    """Dump wheel contents using tree or ls command and analyze DLL imports."""
+    """Dump wheel contents using dir or tree command and analyze DLL imports."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Unpack the wheel
         subprocess.run(["wheel", "unpack", wheel_path, "-d", temp_dir], check=True)
@@ -27,13 +28,14 @@ def dump_wheel_contents(wheel_path, output_path):
         # Get the unpacked directory name
         wheel_dir = next(os.scandir(temp_dir)).path
         
-        # Try to use tree first, fall back to ls -la if tree is not available
-        try:
-            # Use tree with human-readable sizes and no color
-            cmd = ["tree", "-h", "--noreport", "--charset=ascii", wheel_dir]
-        except FileNotFoundError:
-            # Fall back to ls -la
-            cmd = ["ls", "-la", "-R", wheel_dir]
+        # Use dir on Windows, tree on Unix-like systems
+        if platform.system() == 'Windows':
+            cmd = ["cmd", "/c", "dir", "/s", "/b", wheel_dir]
+        else:
+            try:
+                cmd = ["tree", "-h", "--noreport", "--charset=ascii", wheel_dir]
+            except FileNotFoundError:
+                cmd = ["ls", "-la", "-R", wheel_dir]
         
         # Run the command and capture output
         result = subprocess.run(cmd, capture_output=True, text=True)
