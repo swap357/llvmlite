@@ -122,6 +122,22 @@ jobs:
             twine check "$WHL_FILE"
           done
 
+      - name: Generate wheel contents report
+        run: |
+          mkdir -p wheel_reports
+          cd dist
+          for WHL_FILE in *.whl; do
+            echo "Analyzing contents of $WHL_FILE"
+            python "$GITHUB_WORKSPACE"/buildscripts/github/dump_wheel_contents.py "$WHL_FILE" -o "../wheel_reports/${WHL_FILE%.whl}_contents.txt"
+          done
+
+      - name: Upload wheel reports
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
+        with:
+          name: wheel-reports
+          path: wheel_reports
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
       - name: Compare with previous release
         run: |
           # Download previous release wheel
