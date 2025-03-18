@@ -129,7 +129,7 @@ jobs:
           cd dist
           for WHL_FILE in *.whl; do
             echo "Analyzing contents of $WHL_FILE"
-            python "$GITHUB_WORKSPACE"/buildscripts/github/dump_wheel_contents.py "$WHL_FILE" -o "../wheel_reports/${WHL_FILE%.whl}_contents.txt"
+            python "$GITHUB_WORKSPACE"/buildscripts/github/dump_wheel_contents.py "$WHL_FILE" -o "$GITHUB_WORKSPACE/wheel_reports/${WHL_FILE%.whl}_contents.txt"
           done
 
       - name: Compare with previous release
@@ -150,7 +150,7 @@ jobs:
               echo "Wheel 2: $WHL_FILE"
               
               # Generate report for PyPI wheel
-              python "$GITHUB_WORKSPACE"/buildscripts/github/dump_wheel_contents.py "$PREV_WHEEL" -o "../wheel_reports/${PREV_WHEEL%.whl}_contents.txt"
+              python "$GITHUB_WORKSPACE"/buildscripts/github/dump_wheel_contents.py "$PREV_WHEEL" -o "$GITHUB_WORKSPACE/wheel_reports/${PREV_WHEEL%.whl}_contents.txt"
               
               # Compare DLL imports
               python "$GITHUB_WORKSPACE"/buildscripts/github/compare_win64_wheels.py \
