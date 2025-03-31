@@ -84,13 +84,15 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
+          # Install delocate as well
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
+          conda install -c conda-forge delocate
 
       - name: Build wheel
         if: ${{ steps.cache-wheel.outputs.cache-hit != 'true' }}
         run: python -m build
 
-      - name: Fix macOS wheel library paths
+      - name: Fix macOS wheel library paths using delocate
         if: ${{ steps.cache-wheel.outputs.cache-hit != 'true' }}
         run: |
           cd dist
@@ -98,42 +100,26 @@ jobs:
           whl=$(ls -t *.whl | head -n 1)
           echo "Processing wheel: $whl"
           
-          # Unpack the wheel
+          echo "=== BEFORE DELOCATE ==="
+          # Unpack just to check initial links
           wheel unpack "$whl"
-          
-          # Get into the unpacked directory
           target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
-          cd "$target_dir"
-          
-          # Find and fix dylib
-          target=$(find . -iname "libllvmlite.dylib")
-          echo "Found dylib at: $target"
-          
-          echo "=== BEFORE ==="
+          target=$(find "$target_dir" -iname "libllvmlite.dylib")
           otool -L "$target"
+          rm -rf "$target_dir" # Clean up unpacked dir
           
-          # Fix all library paths to use absolute paths
-          install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/libz.1.dylib" "$target"
-          install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/libc++.1.dylib" "$target"
-
-          # Debug: Find libunwind.1.dylib
-          echo "=== Looking for libunwind.1.dylib ==="
-          find $CONDA_PREFIX -name "libunwind.1.dylib" || echo "Not found in conda prefix"
-          find $CONDA_PREFIX/libexec -name "libunwind.1.dylib" || echo "Not found in libexec"
+          # Run delocate
+          delocate-wheel -v "$whl"
           
-          echo "=== AFTER ==="
+          echo "=== AFTER DELOCATE ==="
+          # Check links again after delocate
+          wheel unpack "$whl"
+          target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
+          target=$(find "$target_dir" -iname "libllvmlite.dylib")
           otool -L "$target"
-          
-          # Debug: Check if libraries exist
-          echo "=== Checking library existence ==="
-          ls -l /usr/lib/libz.1.dylib || echo "libz.1.dylib not found"
-          ls -l /usr/lib/libc++.1.dylib || echo "libc++.1.dylib not found"
-          ls -l /usr/lib/libunwind.1.dylib || echo "libunwind.1.dylib not found"
-          
-
-          echo "=== Write back to wheel ==="
-          cd ..
-          wheel pack "$target_dir"
+          # Check for bundled libs
+          ls -l "$target_dir/llvmlite/.dylibs/" || echo "No .dylibs directory found or it's empty"
+          rm -rf "$target_dir" # Clean up unpacked dir
           
           echo "=== Final wheel filename ==="
           ls -la "$whl"
@@ -246,20 +232,11 @@ jobs:
           # Upgrade pip and install wheel
           $PYTHON_PATH -m pip install --upgrade pip wheel
 
-          # Remove ABI tag and update platform tag from wheel
+          # Install wheel and run tests (Removed wheel tags modification)
           cd dist
           whl=$(ls -t *.whl | head -n 1)
-          echo "Processing wheel: $whl"
-          
-          # Remove ABI tag and update platform tag
-          $PYTHON_PATH -m wheel tags --remove --abi-tag=none --platform-tag=macosx_10_15_x86_64 "$whl"
-          
-          # Get the new wheel filename after tag removal
-          new_whl=$(ls -t *.whl | head -n 1)
-          echo "Using wheel: $new_whl"
-
-          # Install wheel and run tests
-          $PYTHON_PATH -m pip install -v "$new_whl"
+          echo "Using wheel: $whl"
+          $PYTHON_PATH -m pip install -v "$whl"
           
           # Run tests
           $PYTHON_PATH -m llvmlite.tests
