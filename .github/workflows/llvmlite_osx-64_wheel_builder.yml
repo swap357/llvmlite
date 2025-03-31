@@ -45,14 +45,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dist/*.whl
-          key: wheel-v4-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
+          key: wheel-v5-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
           restore-keys: |
-            wheel-v4-${{ matrix.python-version }}-
+            wheel-v5-${{ matrix.python-version }}-
 
       - name: Debug cache status
         run: |
           echo "Cache hit status: ${{ steps.cache-wheel.outputs.cache-hit }}"
-          echo "Cache key: wheel-v4-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}"
+          echo "Cache key: wheel-v5-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}"
           echo "Cache hit value type: $(echo ${{ steps.cache-wheel.outputs.cache-hit }} | xxd)"
           ls -la dist/ || true
 
@@ -115,6 +115,7 @@ jobs:
           # Fix all library paths to use absolute paths
           install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/libz.1.dylib" "$target"
           install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/libc++.1.dylib" "$target"
+          install_name_tool -change "@rpath/libunwind.1.dylib" "/usr/lib/libunwind.1.dylib" "$target"
           
           echo "=== AFTER ==="
           otool -L "$target"
