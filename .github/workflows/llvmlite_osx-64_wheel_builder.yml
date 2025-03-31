@@ -45,14 +45,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dist/*.whl
-          key: wheel-v5-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
+          key: wheel-v6-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
           restore-keys: |
-            wheel-v5-${{ matrix.python-version }}-
+            wheel-v6-${{ matrix.python-version }}-
 
       - name: Debug cache status
         run: |
           echo "Cache hit status: ${{ steps.cache-wheel.outputs.cache-hit }}"
-          echo "Cache key: wheel-v5-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}"
+          echo "Cache key: wheel-v6-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}"
           echo "Cache hit value type: $(echo ${{ steps.cache-wheel.outputs.cache-hit }} | xxd)"
           ls -la dist/ || true
 
@@ -85,7 +85,7 @@ jobs:
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
-      
+
       - name: Build wheel
         if: ${{ steps.cache-wheel.outputs.cache-hit != 'true' }}
         run: python -m build
@@ -115,11 +115,22 @@ jobs:
           # Fix all library paths to use absolute paths
           install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/libz.1.dylib" "$target"
           install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/libc++.1.dylib" "$target"
-          install_name_tool -change "@rpath/libunwind.1.dylib" "/usr/lib/libunwind.1.dylib" "$target"
+
+          # Debug: Find libunwind.1.dylib
+          echo "=== Looking for libunwind.1.dylib ==="
+          find $CONDA_PREFIX -name "libunwind.1.dylib" || echo "Not found in conda prefix"
+          find $CONDA_PREFIX/libexec -name "libunwind.1.dylib" || echo "Not found in libexec"
           
           echo "=== AFTER ==="
           otool -L "$target"
           
+          # Debug: Check if libraries exist
+          echo "=== Checking library existence ==="
+          ls -l /usr/lib/libz.1.dylib || echo "libz.1.dylib not found"
+          ls -l /usr/lib/libc++.1.dylib || echo "libc++.1.dylib not found"
+          ls -l /usr/lib/libunwind.1.dylib || echo "libunwind.1.dylib not found"
+          
+
           echo "=== Write back to wheel ==="
           cd ..
           wheel pack "$target_dir"
@@ -249,15 +260,6 @@ jobs:
 
           # Install wheel and run tests
           $PYTHON_PATH -m pip install -v "$new_whl"
-          
-          # Set up environment variables for LLVM
-          export DYLD_LIBRARY_PATH="/usr/local/lib:/usr/lib:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib:$DYLD_LIBRARY_PATH"
-          export DYLD_FALLBACK_LIBRARY_PATH="/usr/local/lib:/usr/lib:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib:$DYLD_FALLBACK_LIBRARY_PATH"
-          
-          # Print environment for debugging
-          echo "=== Environment variables ==="
-          echo "DYLD_LIBRARY_PATH: $DYLD_LIBRARY_PATH"
-          echo "DYLD_FALLBACK_LIBRARY_PATH: $DYLD_FALLBACK_LIBRARY_PATH"
           
           # Run tests
           $PYTHON_PATH -m llvmlite.tests
