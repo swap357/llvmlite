@@ -220,40 +220,6 @@ jobs:
           echo "=== Initial Pip Information ==="
           python3 -m pip debug --verbose
           
-          # Get the Python executable path from GitHub Actions cache
-          PYTHON_PATH="/opt/hostedtoolcache/Python/${{ matrix.python-version }}/x64/bin/python"
-          echo "Using Python from: $PYTHON_PATH"
-          $PYTHON_PATH --version
-          
-          # Ensure we're using the correct Python
-          export PATH="/opt/hostedtoolcache/Python/${{ matrix.python-version }}/x64/bin:$PATH"
-          
-          # Install required packages for debugging
-          $PYTHON_PATH -m pip install --upgrade pip wheel
-          
-          # Debug platform information
-          echo "=== Platform Information ==="
-          $PYTHON_PATH -c "import platform; print(f'Python version: {platform.python_version()}'); print(f'Platform: {platform.platform()}'); print(f'Machine: {platform.machine()}'); print(f'System: {platform.system()}')"
-          
-          # Debug wheel information
-          echo "=== Wheel Information ==="
-          cd dist
-          for whl in *.whl; do
-            echo "Wheel filename: $whl"
-            $PYTHON_PATH -m wheel tags "$whl"
-            echo "Wheel contents:"
-            $PYTHON_PATH -m wheel unpack "$whl" -d /tmp/wheel_inspect
-            echo "Wheel directory structure:"
-            find /tmp/wheel_inspect -type d
-            rm -rf /tmp/wheel_inspect
-          done
-          
-          # Debug pip version and supported platforms
-          echo "=== Pip Information ==="
-          $PYTHON_PATH -m pip --version
-          $PYTHON_PATH -m pip debug --verbose
-          $PYTHON_PATH -c "import sys; from packaging.tags import sys_tags; print('System supported tags:'); [print(tag) for tag in sys_tags()]"
-          
           # Try to install with verbose output
           echo "=== Attempting pip install with verbose output ==="
           $PYTHON_PATH -m pip install -v dist/*.whl
