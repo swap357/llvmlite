@@ -43,20 +43,18 @@ jobs:
       - name: Show Available SDKs
         run: xcodebuild -showsdks
 
-      - name: Show Xcode Information and Potential Switch Targets
+      - name: Show Installed Xcode Apps
+        run: |
+          echo "--- Xcode info ---"
+          ls -d /Applications/Xcode*.app 2>/dev/null || echo "[Info] No Xcode*.app bundles found in /Applications"
+
+      - name: Show Available Toolchains
         run: |
           echo "--- Active Xcode Path (Current Selection) ---"
           xcode-select -p
           ls -l /Library/Developer/CommandLineTools/SDKs
           xcrun --sdk macosx --show-sdk-path
-          
-      - name: Show Available Toolchains
-        run: |
-          echo "--- System Toolchains (/Library/Developer/Toolchains) ---"
-          ls /Library/Developer/Toolchains || echo "[Info] No toolchains found in /Library/Developer/Toolchains"
-          echo "--- User Toolchains (~/Library/Developer/Toolchains) ---"
-          ls ~/Library/Developer/Toolchains 2>/dev/null || echo "[Info] No toolchains found in ~/Library/Developer/Toolchains"
-        
+  
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
