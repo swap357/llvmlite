@@ -45,14 +45,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dist/*.whl
-          key: wheel-v2-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
+          key: wheel-v3-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
           restore-keys: |
-            wheel-v2-${{ matrix.python-version }}-
+            wheel-v3-${{ matrix.python-version }}-
 
       - name: Debug cache status
         run: |
           echo "Cache hit status: ${{ steps.cache-wheel.outputs.cache-hit }}"
-          echo "Cache key: wheel-v2-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}"
+          echo "Cache key: wheel-v3-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
           echo "Cache hit value type: $(echo ${{ steps.cache-wheel.outputs.cache-hit }} | xxd)"
           ls -la dist/ || true
 
@@ -239,10 +239,14 @@ jobs:
           # Remove ABI tag and update platform tag from wheel
           cd dist
           whl=$(ls -t *.whl | head -n 1)
+          echo "Processing wheel: $whl"
+          
+          # Remove ABI tag and update platform tag
           $PYTHON_PATH -m wheel tags --remove --abi-tag=none --platform-tag=macosx_10_15_x86_64 "$whl"
           
           # Get the new wheel filename after tag removal
           new_whl=$(ls -t *.whl | head -n 1)
+          echo "Using wheel: $new_whl"
 
           # Install wheel and run tests
           $PYTHON_PATH -m pip install -v "$new_whl"
@@ -250,6 +254,10 @@ jobs:
           # Set up environment variables for LLVM
           export DYLD_LIBRARY_PATH="/usr/local/lib:$DYLD_LIBRARY_PATH"
           export DYLD_FALLBACK_LIBRARY_PATH="/usr/local/lib:/usr/lib:$DYLD_FALLBACK_LIBRARY_PATH"
+          
+          # Print library paths for debugging
+          echo "=== Library paths ==="
+          otool -L $($PYTHON_PATH -c "import llvmlite.binding; print(llvmlite.binding.__file__)")/binding/libllvmlite.dylib
           
           # Run tests
           $PYTHON_PATH -c "import llvmlite.binding as llvm; print(f'LLVM version: {llvm.get_version()}')"
