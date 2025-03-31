@@ -242,10 +242,12 @@ jobs:
           # Remove all ABI tags
           python -m wheel tags --remove --abi-tag=none "$whl"
           
+          # Get the new wheel filename after tag removal
+          new_whl=$(ls -t *.whl | head -n 1)
           echo "=== Wheel tags after removal ==="
-          python -m wheel tags "$whl"
+          python -m wheel tags "$new_whl"
 
           # Install wheel and run tests
-          python -m pip install -v *.whl
+          python -m pip install -v "$new_whl"
           python -c "import llvmlite.binding as llvm; print(f'LLVM version: {llvm.get_version()}')"
           python -m llvmlite.tests
