@@ -66,9 +66,10 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
-          # Install delocate along with other dependencies
+          # Install base dependencies
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
-          conda install -c conda-forge delocate # Install delocate
+          # Install delocate
+          pip install delocate
 
       - name: Build wheel
         run: python -m build
@@ -92,7 +93,6 @@ jobs:
 
           # Run delocate, telling it where to find conda libs and where to output
           # Use -v for verbose output, -d to show dependencies
-          # Add --dylibs-path .dylibs to explicitly set the target lib folder within the wheel
           delocate-wheel -v -d --dylibs-path .dylibs -L $CONDA_PREFIX/lib -w dist_repaired "$whl"
 
           echo "=== Repaired wheel filename ==="
