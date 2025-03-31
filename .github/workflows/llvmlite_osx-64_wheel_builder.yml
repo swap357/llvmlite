@@ -92,7 +92,8 @@ jobs:
 
           # Run delocate, telling it where to find conda libs and where to output
           # Use -v for verbose output, -d to show dependencies
-          delocate-wheel -v -d -L $CONDA_PREFIX/lib -w dist_repaired "$whl"
+          # Add --dylibs-path .dylibs to explicitly set the target lib folder within the wheel
+          delocate-wheel -v -d --dylibs-path .dylibs -L $CONDA_PREFIX/lib -w dist_repaired "$whl"
 
           echo "=== Repaired wheel filename ==="
           ls -la dist_repaired/*.whl
