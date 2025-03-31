@@ -68,10 +68,21 @@ jobs:
           fi
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
       
+      - name: Check for cached wheel
+        id: cache-wheel
+        uses: actions/cache@v4
+        with:
+          path: dist/*.whl
+          key: wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py', '.github/workflows/llvmlite_osx-64_wheel_builder.yml') }}-${{ github.sha }}
+          restore-keys: |
+            wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py', '.github/workflows/llvmlite_osx-64_wheel_builder.yml') }}-
+
       - name: Build wheel
+        if: steps.cache-wheel.outputs.cache-hit != 'true'
         run: python -m build
 
       - name: Fix macOS wheel library paths
+        if: steps.cache-wheel.outputs.cache-hit != 'true'
         run: |
           cd dist
           # Get the most recent wheel
@@ -107,6 +118,7 @@ jobs:
           ls -la "$whl"
 
       - name: Cache wheel
+        if: steps.cache-wheel.outputs.cache-hit != 'true'
         uses: actions/cache@v4
         with:
           path: dist/*.whl
