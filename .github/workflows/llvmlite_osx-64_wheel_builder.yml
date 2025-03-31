@@ -106,6 +106,14 @@ jobs:
           echo "=== Final wheel filename ==="
           ls -la "$whl"
 
+      - name: Cache wheel
+        uses: actions/cache@v4
+        with:
+          path: dist/*.whl
+          key: wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py', '.github/workflows/llvmlite_osx-64_wheel_builder.yml') }}-${{ github.sha }}
+          restore-keys: |
+            wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py', '.github/workflows/llvmlite_osx-64_wheel_builder.yml') }}-
+
       - name: Upload llvmlite wheel
         uses: actions/upload-artifact@v4
         with:
@@ -118,6 +126,7 @@ jobs:
   osx-64-validate:
     name: osx-64-validate
     needs: osx-64-build
+    if: github.event_name == 'pull_request' && !needs.osx-64-build.outputs.cache-hit
     runs-on: macos-13
     defaults:
       run:
@@ -183,7 +192,8 @@ jobs:
 
   osx-64-test:
     name: osx-64-test
-    needs: osx-64-validate
+    needs: osx-64-build
+    if: always() && needs.osx-64-build.result == 'success'
     runs-on: macos-13
     defaults:
       run:
