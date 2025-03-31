@@ -48,13 +48,17 @@ jobs:
           echo "--- Xcode info ---"
           ls -d /Applications/Xcode*.app 2>/dev/null || echo "[Info] No Xcode*.app bundles found in /Applications"
 
-      - name: Show Available Toolchains
+      - name: Select Xcode 14.1.0
+        run: sudo xcode-select -s /Applications/Xcode_14.1.0.app
+
+      - name: xcode info
         run: |
           echo "--- Active Xcode Path (Current Selection) ---"
           xcode-select -p
           ls -l /Library/Developer/CommandLineTools/SDKs
           xcrun --sdk macosx --show-sdk-path
   
+
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
