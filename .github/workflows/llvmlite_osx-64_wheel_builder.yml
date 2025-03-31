@@ -66,60 +66,36 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
+          # Install delocate along with other dependencies
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
+          conda install -c conda-forge delocate # Install delocate
 
       - name: Build wheel
         run: python -m build
 
-      - name: Fix macOS wheel library paths
+      - name: Repair wheel with delocate
         run: |
-          cd dist
+          set -x
+          # Create a directory for the repaired wheels
+          mkdir dist_repaired
+
           # Get the most recent wheel
-          whl=$(ls -t *.whl | head -n 1)
+          whl=$(ls -t dist/*.whl | head -n 1)
           echo "Processing wheel: $whl"
-          
-          # Unpack the wheel
-          wheel unpack "$whl"
-          
-          # Get into the unpacked directory
-          target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
-          cd "$target_dir"
-          
-          # Find and fix dylib
-          target=$(find . -iname "libllvmlite.dylib")
-          echo "Found dylib at: $target"
-          
-          echo "=== BEFORE ==="
-          otool -L "$target"
-          
-          # Fix library paths
-          install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/libz.1.dylib" "$target"
-          install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/libc++.1.dylib" "$target"
-          
-          echo "=== AFTER ==="
-          otool -L "$target"
-          
-          echo "=== Write back to wheel ==="
-          cd ..
-          wheel pack "$target_dir"
-          
-          echo "=== Final wheel filename before tag removal ==="
-          ls -la "$whl"
 
-          echo "=== Removing macosx_10_15_x86_64 platform tag ==="
-          python -m wheel tags --remove --platform-tag macosx_10_15_x86_64 "$whl"
+          # Run delocate, telling it where to find conda libs and where to output
+          # Use -v for verbose output, -d to show dependencies
+          delocate-wheel -v -d -L $CONDA_PREFIX/lib -w dist_repaired "$whl"
 
-          echo "=== Tags after removal ==="
-          python -m wheel tags "$whl"
-
-          echo "=== Final wheel filename after tag removal ==="
-          ls -la "$whl"
+          echo "=== Repaired wheel filename ==="
+          ls -la dist_repaired/*.whl
 
       - name: Upload llvmlite wheel
         uses: actions/upload-artifact@v4
         with:
           name: llvmlite-osx-64-py${{ matrix.python-version }}
-          path: dist/*.whl
+          # Upload the repaired wheel from the new directory
+          path: dist_repaired/*.whl
           compression-level: 0
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: error
