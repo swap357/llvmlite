@@ -67,22 +67,53 @@ jobs:
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
-          # Install delocate using pip
-          python -m pip install delocate
 
       - name: Build wheel
         run: python -m build
 
-      - name: Repair macOS wheel with delocate
+      - name: Fix macOS wheel library paths
         run: |
           cd dist
           # Get the most recent wheel
           whl=$(ls -t *.whl | head -n 1)
           echo "Processing wheel: $whl"
-          # Run delocate-wheel: -w . places repaired wheel in current dir, -v is verbose
-          delocate-wheel -w . -v "$whl"
-          echo "=== Final wheel filename after delocate ==="
-          ls -la *.whl
+          
+          # Unpack the wheel
+          wheel unpack "$whl"
+          
+          # Get into the unpacked directory
+          target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
+          cd "$target_dir"
+          
+          # Find and fix dylib
+          target=$(find . -iname "libllvmlite.dylib")
+          echo "Found dylib at: $target"
+          
+          echo "=== BEFORE ==="
+          otool -L "$target"
+          
+          # Fix library paths
+          install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/libz.1.dylib" "$target"
+          install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/libc++.1.dylib" "$target"
+          
+          echo "=== AFTER ==="
+          otool -L "$target"
+          
+          echo "=== Write back to wheel ==="
+          cd ..
+          wheel pack "$target_dir"
+          
+          echo "=== Final wheel filename before tag removal ==="
+          ls -la "$whl"
+
+          echo "=== Removing macosx_10_15_x86_64 platform tag ==="
+          python -m wheel tags --remove --platform-tag macosx_10_15_x86_64 "$whl"
+
+          echo "=== Tags after removal ==="
+          python -m wheel tags "$whl"
+
+          echo "=== Final wheel filename after tag removal ==="
+          ls -la "$whl"
 
       - name: Upload llvmlite wheel
         uses: actions/upload-artifact@v4
