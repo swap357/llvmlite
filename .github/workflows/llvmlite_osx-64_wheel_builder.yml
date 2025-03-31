@@ -45,14 +45,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dist/*.whl
-          key: wheel-v7-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
+          key: wheel-v8-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
           restore-keys: |
-            wheel-v7-${{ matrix.python-version }}-
+            wheel-v8-${{ matrix.python-version }}-
 
       - name: Debug cache status
         run: |
           echo "Cache hit status: ${{ steps.cache-wheel.outputs.cache-hit }}"
-          echo "Cache key: wheel-v7-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}"
+          echo "Cache key: wheel-v8-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}"
           echo "Cache hit value type: $(echo ${{ steps.cache-wheel.outputs.cache-hit }} | xxd)"
           ls -la dist/ || true
 
@@ -84,45 +84,95 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
-          # Install delocate as well
+          # Removed delocate install
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
-          conda install -c conda-forge delocate
+          # conda install -c conda-forge delocate # Reverted change
 
       - name: Build wheel
         if: ${{ steps.cache-wheel.outputs.cache-hit != 'true' }}
         run: python -m build
 
-      - name: Fix macOS wheel library paths using delocate
+      - name: Fix macOS wheel library paths manually
         if: ${{ steps.cache-wheel.outputs.cache-hit != 'true' }}
         run: |
+          set -ex # Exit on error, print commands
           cd dist
           # Get the most recent wheel
           whl=$(ls -t *.whl | head -n 1)
           echo "Processing wheel: $whl"
           
-          echo "=== BEFORE DELOCATE ==="
-          # Unpack just to check initial links
-          wheel unpack "$whl"
-          target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
-          target=$(find "$target_dir" -iname "libllvmlite.dylib")
-          otool -L "$target"
-          rm -rf "$target_dir" # Clean up unpacked dir
+          # Define the directory where libs will be copied inside the wheel
+          dest_lib_dir="llvmlite/binding" # Relative path within the unpacked wheel
           
-          # Run delocate
-          delocate-wheel -v "$whl"
-          
-          echo "=== AFTER DELOCATE ==="
-          # Check links again after delocate
+          # Unpack the wheel
           wheel unpack "$whl"
-          target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
-          target=$(find "$target_dir" -iname "libllvmlite.dylib")
-          otool -L "$target"
-          # Check for bundled libs
-          ls -l "$target_dir/llvmlite/.dylibs/" || echo "No .dylibs directory found or it's empty"
-          rm -rf "$target_dir" # Clean up unpacked dir
+          unpacked_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
+          
+          # Find the target dylib within the unpacked wheel
+          target_dylib="$unpacked_dir/$dest_lib_dir/libllvmlite.dylib"
+          echo "Target dylib: $target_dylib"
+          
+          echo "=== BEFORE copying libs and fixing paths ==="
+          otool -L "$target_dylib"
+          
+          # Define libraries to copy and fix paths for
+          libs_to_fix=("libz.1.dylib" "libc++.1.dylib" "libunwind.1.dylib")
+          
+          # Find and copy libraries from Conda env to the wheel dir
+          echo "--- Copying libraries from $CONDA_PREFIX/lib ---"
+          for lib in "${libs_to_fix[@]}"; do
+            conda_lib_path=$(find "$CONDA_PREFIX/lib" -name "$lib" | head -n 1)
+            if [ -z "$conda_lib_path" ]; then
+              echo "ERROR: Cannot find $lib in $CONDA_PREFIX/lib"
+              exit 1
+            fi
+            echo "Copying $conda_lib_path to $unpacked_dir/$dest_lib_dir/"
+            cp "$conda_lib_path" "$unpacked_dir/$dest_lib_dir/"
+          done
+          
+          # Change library paths in target dylib to use @loader_path
+          echo "--- Modifying library paths in $target_dylib ---"
+          for lib in "${libs_to_fix[@]}"; do
+            # Get the original path from otool output (might be @rpath or absolute)
+            original_path=$(otool -L "$target_dylib" | grep "$lib" | awk '{print $1}')
+            if [ -z "$original_path" ]; then
+              echo "WARNING: Did not find original path for $lib in $target_dylib"
+              continue # Skip if library not found in otool output
+            fi
+            loader_path="@loader_path/$lib"
+            echo "Changing $original_path to $loader_path"
+            install_name_tool -change "$original_path" "$loader_path" "$target_dylib"
+          done
+
+          # Also fix the id of the copied libraries themselves, if needed
+          # This ensures they find each other if they have cross-dependencies
+          echo "--- Fixing library IDs for copied libraries ---"
+          for lib in "${libs_to_fix[@]}"; do
+             copied_lib_path="$unpacked_dir/$dest_lib_dir/$lib"
+             if [ -f "$copied_lib_path" ]; then
+                 echo "Setting ID for $copied_lib_path to @loader_path/$lib"
+                 install_name_tool -id "@loader_path/$lib" "$copied_lib_path"
+             fi
+          done
+
+          echo "=== AFTER copying libs and fixing paths ==="
+          otool -L "$target_dylib"
+          echo "--- Contents of $unpacked_dir/$dest_lib_dir ---"
+          ls -l "$unpacked_dir/$dest_lib_dir"
+          
+          # Remove the original wheel file before packing
+          rm "$whl" 
+          
+          # Repack the wheel
+          echo "--- Repacking wheel ---"
+          cd "$unpacked_dir"
+          wheel pack .
+          # Move the repacked wheel back to the dist directory
+          mv *.whl ../
+          cd .. # Back to dist directory
           
           echo "=== Final wheel filename ==="
-          ls -la "$whl"
+          ls -la *.whl # Should show the repacked wheel
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
