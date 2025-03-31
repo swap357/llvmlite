@@ -112,9 +112,10 @@ jobs:
           echo "=== BEFORE ==="
           otool -L "$target"
           
-          # Fix library paths
+          # Fix all @rpath libraries
           install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/libz.1.dylib" "$target"
           install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/libc++.1.dylib" "$target"
+          install_name_tool -change "@rpath/libunwind.1.dylib" "/usr/lib/libunwind.1.dylib" "$target"
           
           echo "=== AFTER ==="
           otool -L "$target"
@@ -231,7 +232,6 @@ jobs:
         run: |
           # Get the Python executable path
           PYTHON_PATH=$(which python${{ matrix.python-version }})
-          echo "Using Python at: $PYTHON_PATH"
           
           # Upgrade pip and install wheel
           $PYTHON_PATH -m pip install --upgrade pip wheel
@@ -239,17 +239,18 @@ jobs:
           # Remove ABI tag and update platform tag from wheel
           cd dist
           whl=$(ls -t *.whl | head -n 1)
-          echo "Processing wheel: $whl"
-          
-          # Remove all ABI tags and update platform tag to macosx_10_15_x86_64
           $PYTHON_PATH -m wheel tags --remove --abi-tag=none --platform-tag=macosx_10_15_x86_64 "$whl"
           
           # Get the new wheel filename after tag removal
           new_whl=$(ls -t *.whl | head -n 1)
-          echo "=== Wheel tags after removal ==="
-          $PYTHON_PATH -m wheel tags "$new_whl"
 
           # Install wheel and run tests
           $PYTHON_PATH -m pip install -v "$new_whl"
+          
+          # Set up environment variables for LLVM
+          export DYLD_LIBRARY_PATH="/usr/local/lib:$DYLD_LIBRARY_PATH"
+          export DYLD_FALLBACK_LIBRARY_PATH="/usr/local/lib:/usr/lib:$DYLD_FALLBACK_LIBRARY_PATH"
+          
+          # Run tests
           $PYTHON_PATH -c "import llvmlite.binding as llvm; print(f'LLVM version: {llvm.get_version()}')"
           $PYTHON_PATH -m llvmlite.tests
