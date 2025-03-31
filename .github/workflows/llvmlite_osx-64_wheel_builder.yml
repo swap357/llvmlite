@@ -147,6 +147,18 @@ jobs:
           name: llvmlite-osx-64-py${{ matrix.python-version }}
           path: dist
 
+      - name: Remove wheel ABI tag
+        run: |
+          cd dist
+          # Get the most recent wheel
+          whl=$(ls -t *.whl | head -n 1)
+          echo "Removing ABI tag from wheel: $whl"
+          # Remove dots from Python version for ABI tag
+          PYTHON_ABI="cp${matrix.python-version//./}"
+          python -m wheel tags --remove --abi-tag="$PYTHON_ABI" "$whl"
+          echo "=== Wheel tags after removal ==="
+          python -m wheel tags "$whl"
+
       - name: Validate wheels
         run: |
           set -e  # Exit on any error
@@ -207,46 +219,16 @@ jobs:
 
       - name: Install and test
         run: |
-          # setup-python action should put the correct python on PATH
-          python --version
-          which python
-
-          # Upgrade pip first
-          echo "=== Upgrading pip ==="
-          python -m pip install --upgrade pip
-          echo "=== Pip version after upgrade ==="
-          python -m pip --version
-
-          # Install required packages for debugging
+          # Upgrade pip and install wheel
           python -m pip install --upgrade pip wheel
 
-          # Debug platform information
-          echo "=== Platform Information ==="
-          python -c "import platform; print(f'Python version: {platform.python_version()}'); print(f'Platform: {platform.platform()}'); print(f'Machine: {platform.machine()}'); print(f'System: {platform.system()}')"
-
-          # Debug wheel information
-          echo "=== Wheel Information ==="
+          # Remove ABI tag from wheel
           cd dist
-          for whl in *.whl; do
-            echo "Wheel filename: $whl"
-            python -m wheel tags "$whl"
-            echo "Wheel contents:"
-            python -m wheel unpack "$whl" -d /tmp/wheel_inspect
-            echo "Wheel directory structure:"
-            find /tmp/wheel_inspect -type d
-            rm -rf /tmp/wheel_inspect
-          done
+          whl=$(ls -t *.whl | head -n 1)
+          PYTHON_ABI="cp${matrix.python-version//./}"
+          python -m wheel tags --remove --abi-tag="$PYTHON_ABI" "$whl"
 
-          # Debug pip version and supported platforms
-          echo "=== Pip Information ==="
-          python -m pip --version
-          python -m pip debug --verbose
-          
-          # Try to install with verbose output
-          echo "=== Attempting pip install with verbose output ==="
-          python -m pip install -v *.whl
-
-          # Basic import test
+          # Install wheel and run tests
+          python -m pip install -v "$whl"
           python -c "import llvmlite.binding as llvm; print(f'LLVM version: {llvm.get_version()}')"
-          # Run full test suite
           python -m llvmlite.tests
