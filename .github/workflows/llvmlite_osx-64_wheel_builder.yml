@@ -40,34 +40,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          python-version: ${{ matrix.python-version }}
-          conda-remove-defaults: true
-          auto-update-conda: true
-          auto-activate-base: true
-
-      - name: Download llvmdev Artifact
-        if: ${{ inputs.llvmdev_run_id != '' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: llvmdev_osx-64
-          path: llvmdev_conda_packages
-          run-id: ${{ inputs.llvmdev_run_id }}
-          repository: ${{ github.repository }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install build dependencies
-        run: |
-          set -x
-          if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
-              CHAN="file:///${{ env.LOCAL_LLVMDEV_ARTIFACT_PATH }}"
-          else
-              CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
-          fi
-          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
-      
       - name: Check for cached wheel
         id: cache-wheel
         uses: actions/cache@v4
@@ -77,6 +49,36 @@ jobs:
           restore-keys: |
             wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py', '.github/workflows/llvmlite_osx-64_wheel_builder.yml') }}-
 
+      - name: Setup Miniconda
+        if: steps.cache-wheel.outputs.cache-hit != 'true'
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+          conda-remove-defaults: true
+          auto-update-conda: true
+          auto-activate-base: true
+
+      - name: Download llvmdev Artifact
+        if: ${{ inputs.llvmdev_run_id != '' && steps.cache-wheel.outputs.cache-hit != 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: llvmdev_osx-64
+          path: llvmdev_conda_packages
+          run-id: ${{ inputs.llvmdev_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install build dependencies
+        if: steps.cache-wheel.outputs.cache-hit != 'true'
+        run: |
+          set -x
+          if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
+              CHAN="file:///${{ env.LOCAL_LLVMDEV_ARTIFACT_PATH }}"
+          else
+              CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
+          fi
+          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
+      
       - name: Build wheel
         if: steps.cache-wheel.outputs.cache-hit != 'true'
         run: python -m build
@@ -126,7 +128,7 @@ jobs:
           restore-keys: |
             wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py', '.github/workflows/llvmlite_osx-64_wheel_builder.yml') }}-
 
-      - name: Upload llvmlite wheel
+      - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
           name: llvmlite-osx-64-py${{ matrix.python-version }}
