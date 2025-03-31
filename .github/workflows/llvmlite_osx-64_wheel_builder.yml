@@ -40,6 +40,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Show Available SDKs
+        run: xcodebuild -showsdks
+
+      - name: Show Xcode Information and Potential Switch Targets
+        run: |
+          echo "--- Active Xcode Path (Current Selection) ---"
+          xcode-select -p
+          ls -l /Library/Developer/CommandLineTools/SDKs
+          
+      
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
@@ -57,9 +67,6 @@ jobs:
           run-id: ${{ inputs.llvmdev_run_id }}
           repository: ${{ github.repository }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Show Available SDKs
-        run: xcodebuild -showsdks
 
       - name: Install build dependencies
         run: |
