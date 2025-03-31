@@ -48,12 +48,11 @@ jobs:
           key: wheel-v2-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
           restore-keys: |
             wheel-v2-${{ matrix.python-version }}-
-            wheel-${{ matrix.python-version }}-
 
       - name: Debug cache status
         run: |
           echo "Cache hit status: ${{ steps.cache-wheel.outputs.cache-hit }}"
-          echo "Cache key: wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}"
+          echo "Cache key: wheel-v2-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}"
           echo "Cache hit value type: $(echo ${{ steps.cache-wheel.outputs.cache-hit }} | xxd)"
           ls -la dist/ || true
 
