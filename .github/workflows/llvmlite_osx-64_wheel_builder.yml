@@ -45,9 +45,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dist/*.whl
-          key: wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py', '.github/workflows/llvmlite_osx-64_wheel_builder.yml') }}-${{ github.sha }}
+          key: wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
           restore-keys: |
-            wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py', '.github/workflows/llvmlite_osx-64_wheel_builder.yml') }}-
+            wheel-${{ matrix.python-version }}-
 
       - name: Setup Miniconda
         if: steps.cache-wheel.outputs.cache-hit != 'true'
@@ -118,15 +118,6 @@ jobs:
           
           echo "=== Final wheel filename ==="
           ls -la "$whl"
-
-      - name: Cache wheel
-        if: steps.cache-wheel.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
-        with:
-          path: dist/*.whl
-          key: wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py', '.github/workflows/llvmlite_osx-64_wheel_builder.yml') }}-${{ github.sha }}
-          restore-keys: |
-            wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py', '.github/workflows/llvmlite_osx-64_wheel_builder.yml') }}-
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
@@ -234,13 +225,13 @@ jobs:
           # Upgrade pip and install wheel
           python -m pip install --upgrade pip wheel
 
-          # Remove ABI tag from wheel
+          # Remove ABI tag and update platform tag from wheel
           cd dist
           whl=$(ls -t *.whl | head -n 1)
           echo "Processing wheel: $whl"
           
-          # Remove all ABI tags
-          python -m wheel tags --remove --abi-tag=none "$whl"
+          # Remove all ABI tags and update platform tag
+          python -m wheel tags --remove --abi-tag=none --platform-tag=macosx_13_0_x86_64 "$whl"
           
           # Get the new wheel filename after tag removal
           new_whl=$(ls -t *.whl | head -n 1)
