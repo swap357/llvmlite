@@ -207,15 +207,47 @@ jobs:
 
       - name: Install and test
         run: |
-          # Debug pip information first
-          echo "=== Initial Pip Information ==="
-          python3 -m pip debug --verbose
+          # setup-python action should put the correct python on PATH
+          python --version
+          which python
+
+          # Upgrade pip first
+          echo "=== Upgrading pip ==="
+          python -m pip install --upgrade pip
+          echo "=== Pip version after upgrade ==="
+          python -m pip --version
+
+          # Install required packages for debugging
+          python -m pip install --upgrade pip wheel
+
+          # Debug platform information
+          echo "=== Platform Information ==="
+          python -c "import platform; print(f'Python version: {platform.python_version()}'); print(f'Platform: {platform.platform()}'); print(f'Machine: {platform.machine()}'); print(f'System: {platform.system()}')"
+
+          # Debug wheel information
+          echo "=== Wheel Information ==="
+          cd dist
+          for whl in *.whl; do
+            echo "Wheel filename: $whl"
+            python -m wheel tags "$whl"
+            echo "Wheel contents:"
+            python -m wheel unpack "$whl" -d /tmp/wheel_inspect
+            echo "Wheel directory structure:"
+            find /tmp/wheel_inspect -type d
+            rm -rf /tmp/wheel_inspect
+          done
+
+          # Debug pip version and supported platforms
+          echo "=== Pip Information ==="
+          python -m pip --version
+          python -m pip debug --verbose
+          python -c "import sys; from packaging.tags import sys_tags; print('System supported tags:'); [print(tag) for tag in sys_tags()]"
 
           # Try to install with verbose output
           echo "=== Attempting pip install with verbose output ==="
-          python3 -m pip install -v dist/*.whl
-          
+          python -m pip install -v *.whl
+
           # Basic import test
-          python3 -c "import llvmlite.binding as llvm; print(f'LLVM version: {llvm.get_version()}')"
+          python -c "import llvmlite.binding as llvm; print(f'LLVM version: {llvm.get_version()}')"
           # Run full test suite
-          python3 -m llvmlite.tests
+          python -m llvmlite.tests
