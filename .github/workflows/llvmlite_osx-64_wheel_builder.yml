@@ -134,10 +134,14 @@ jobs:
           # Repack wheel
           rm "$whl"
           echo "--- Repacking wheel ---"
-          (cd "$unpacked_dir" && wheel pack . && mv *.whl ../)
-          cd .. # Back to dist
-          echo "=== Final wheel filename ==="
-          ls -la *.whl
+          cd "$unpacked_dir"
+          wheel pack .
+          echo "--- Moving repacked wheel ---"
+          mv *.whl ../
+          cd .. # Back to dist directory
+          
+          echo "--- Final wheel in dist directory ---"
+          ls -la *.whl # List the wheel in the current (dist) directory
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
