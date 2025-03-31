@@ -49,6 +49,7 @@ jobs:
           auto-activate-base: true
 
       - name: Download llvmdev Artifact
+        if: ${{ inputs.llvmdev_run_id != '' }}
         uses: actions/download-artifact@v4
         with:
           name: llvmdev_osx-64
