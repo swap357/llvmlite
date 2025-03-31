@@ -52,7 +52,7 @@ jobs:
       - name: Debug cache status
         run: |
           echo "Cache hit status: ${{ steps.cache-wheel.outputs.cache-hit }}"
-          echo "Cache key: wheel-v3-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
+          echo "Cache key: wheel-v3-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}"
           echo "Cache hit value type: $(echo ${{ steps.cache-wheel.outputs.cache-hit }} | xxd)"
           ls -la dist/ || true
 
