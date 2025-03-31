@@ -45,14 +45,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dist/*.whl
-          key: wheel-v3-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
+          key: wheel-v4-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
           restore-keys: |
-            wheel-v3-${{ matrix.python-version }}-
+            wheel-v4-${{ matrix.python-version }}-
 
       - name: Debug cache status
         run: |
           echo "Cache hit status: ${{ steps.cache-wheel.outputs.cache-hit }}"
-          echo "Cache key: wheel-v3-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}"
+          echo "Cache key: wheel-v4-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}"
           echo "Cache hit value type: $(echo ${{ steps.cache-wheel.outputs.cache-hit }} | xxd)"
           ls -la dist/ || true
 
@@ -206,7 +206,6 @@ jobs:
   osx-64-test:
     name: osx-64-test
     needs: osx-64-build
-    if: always() && needs.osx-64-build.result == 'success'
     runs-on: macos-13
     defaults:
       run:
