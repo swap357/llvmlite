@@ -66,44 +66,51 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
-          # Install base dependencies
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
-          # Install delocate
-          pip install delocate
-
+      
       - name: Build wheel
         run: python -m build
 
-      - name: Repair wheel with delocate
+      - name: Fix macOS wheel library paths
         run: |
-          set -x
-          # Create a directory for the repaired wheels
-          mkdir dist_repaired
-
+          cd dist
           # Get the most recent wheel
-          whl=$(ls -t dist/*.whl | head -n 1)
+          whl=$(ls -t *.whl | head -n 1)
           echo "Processing wheel: $whl"
-
-          # Debug: List contents of Conda lib directory and set DYLD_LIBRARY_PATH
-          echo "=== Listing $CONDA_PREFIX/lib ==="
-          ls -l $CONDA_PREFIX/lib
-          echo "=== Exporting DYLD_LIBRARY_PATH ==="
-          export DYLD_LIBRARY_PATH=$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH
-          echo "DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH"
-
-          # Run delocate, telling it where to find conda libs and where to output
-          # Use -v for verbose output, -d to show dependencies
-          delocate-wheel -v -d --dylibs-path .dylibs -L $CONDA_PREFIX/lib -w dist_repaired "$whl"
-
-          echo "=== Repaired wheel filename ==="
-          ls -la dist_repaired/*.whl
+          
+          # Unpack the wheel
+          wheel unpack "$whl"
+          
+          # Get into the unpacked directory
+          target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
+          cd "$target_dir"
+          
+          # Find and fix dylib
+          target=$(find . -iname "libllvmlite.dylib")
+          echo "Found dylib at: $target"
+          
+          echo "=== BEFORE ==="
+          otool -L "$target"
+          
+          # Fix library paths
+          install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/libz.1.dylib" "$target"
+          install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/libc++.1.dylib" "$target"
+          
+          echo "=== AFTER ==="
+          otool -L "$target"
+          
+          echo "=== Write back to wheel ==="
+          cd ..
+          wheel pack "$target_dir"
+          
+          echo "=== Final wheel filename ==="
+          ls -la "$whl"
 
       - name: Upload llvmlite wheel
         uses: actions/upload-artifact@v4
         with:
           name: llvmlite-osx-64-py${{ matrix.python-version }}
-          # Upload the repaired wheel from the new directory
-          path: dist_repaired/*.whl
+          path: dist/*.whl
           compression-level: 0
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: error
