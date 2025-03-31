@@ -83,6 +83,13 @@ jobs:
           whl=$(ls -t dist/*.whl | head -n 1)
           echo "Processing wheel: $whl"
 
+          # Debug: List contents of Conda lib directory and set DYLD_LIBRARY_PATH
+          echo "=== Listing $CONDA_PREFIX/lib ==="
+          ls -l $CONDA_PREFIX/lib
+          echo "=== Exporting DYLD_LIBRARY_PATH ==="
+          export DYLD_LIBRARY_PATH=$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH
+          echo "DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH"
+
           # Run delocate, telling it where to find conda libs and where to output
           # Use -v for verbose output, -d to show dependencies
           delocate-wheel -v -d -L $CONDA_PREFIX/lib -w dist_repaired "$whl"
