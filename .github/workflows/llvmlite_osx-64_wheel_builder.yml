@@ -147,18 +147,6 @@ jobs:
           name: llvmlite-osx-64-py${{ matrix.python-version }}
           path: dist
 
-      - name: Remove wheel ABI tag
-        run: |
-          cd dist
-          # Get the most recent wheel
-          whl=$(ls -t *.whl | head -n 1)
-          echo "Removing ABI tag from wheel: $whl"
-          # Remove dots from Python version for ABI tag
-          PYTHON_ABI="cp${matrix.python-version//./}"
-          python -m wheel tags --remove --abi-tag="$PYTHON_ABI" "$whl"
-          echo "=== Wheel tags after removal ==="
-          python -m wheel tags "$whl"
-
       - name: Validate wheels
         run: |
           set -e  # Exit on any error
@@ -225,7 +213,7 @@ jobs:
           # Remove ABI tag from wheel
           cd dist
           whl=$(ls -t *.whl | head -n 1)
-          PYTHON_ABI="cp${matrix.python-version//./}"
+          PYTHON_ABI="cp${{ matrix.python-version }}"
           python -m wheel tags --remove --abi-tag="$PYTHON_ABI" "$whl"
 
           # Install wheel and run tests
