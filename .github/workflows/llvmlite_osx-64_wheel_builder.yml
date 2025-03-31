@@ -217,6 +217,6 @@ jobs:
           python -m wheel tags --remove --abi-tag="$PYTHON_ABI" "$whl"
 
           # Install wheel and run tests
-          python -m pip install -v "$whl"
+          python -m pip install -v *.whl
           python -c "import llvmlite.binding as llvm; print(f'LLVM version: {llvm.get_version()}')"
           python -m llvmlite.tests
