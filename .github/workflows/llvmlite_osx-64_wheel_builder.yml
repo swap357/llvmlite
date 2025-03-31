@@ -45,8 +45,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dist/*.whl
-          key: wheel-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
+          key: wheel-v2-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
           restore-keys: |
+            wheel-v2-${{ matrix.python-version }}-
             wheel-${{ matrix.python-version }}-
 
       - name: Debug cache status
