@@ -84,48 +84,60 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
-          # Re-add delocate install
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
-          conda install -c conda-forge delocate
 
       - name: Build wheel
         if: ${{ steps.cache-wheel.outputs.cache-hit != 'true' }}
         run: python -m build
 
-      - name: Fix macOS wheel library paths using delocate
+      - name: Fix macOS wheel library paths
         if: ${{ steps.cache-wheel.outputs.cache-hit != 'true' }}
         run: |
           set -ex # Exit on error, print commands
           cd dist
-          # Get the most recent wheel
           whl=$(ls -t *.whl | head -n 1)
           echo "Processing wheel: $whl"
           
-          echo "=== BEFORE DELOCATE ==="
-          # Unpack just to check initial links
+          # Unpack and define paths
           wheel unpack "$whl"
-          target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
-          target=$(find "$target_dir" -iname "libllvmlite.dylib")
-          otool -L "$target"
-          rm -rf "$target_dir" # Clean up unpacked dir
+          unpacked_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
+          dest_lib_dir="$unpacked_dir/llvmlite/binding"
+          target_dylib="$dest_lib_dir/libllvmlite.dylib"
           
-          # Run delocate, telling it where to find libs referenced by @rpath
-          echo "--- Running delocate-wheel with library path hint ---"
-          delocate-wheel -L $CONDA_PREFIX/lib -v "$whl"
+          [ -f "$target_dylib" ] || { echo "ERROR: Target dylib $target_dylib not found"; exit 1; }
+          echo "Target dylib: $target_dylib"
+          echo "=== BEFORE fixing paths ==="
+          otool -L "$target_dylib"
           
-          echo "=== AFTER DELOCATE ==="
-          # Check links again after delocate
-          wheel unpack "$whl"
-          target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
-          target=$(find "$target_dir" -iname "libllvmlite.dylib")
-          otool -L "$target"
-          # Check for bundled libs
-          echo "--- Checking for bundled libraries in .dylibs ---"
-          ls -l "$target_dir/llvmlite/.dylibs/" || echo "No .dylibs directory found or it's empty"
-          rm -rf "$target_dir" # Clean up unpacked dir
+          # Define libs to copy/fix
+          libs_to_fix=("libz.1.dylib" "libc++.1.dylib" "libunwind.1.dylib")
           
+          # Find, copy, and fix paths/IDs
+          for lib in "${libs_to_fix[@]}"; do
+            conda_lib_path=$(find "$CONDA_PREFIX/lib" -name "$lib" | head -n 1)
+            [ -n "$conda_lib_path" ] || { echo "ERROR: Cannot find $lib in $CONDA_PREFIX/lib"; exit 1; }
+            echo "Copying $conda_lib_path to $dest_lib_dir/"
+            cp "$conda_lib_path" "$dest_lib_dir/"
+            
+            original_path=$(otool -L "$target_dylib" | grep "$lib" | awk '{print $1}')
+            loader_path="@loader_path/$lib"
+            # Only run install_name_tool -change if the original path was found
+            [ -z "$original_path" ] || install_name_tool -change "$original_path" "$loader_path" "$target_dylib"
+            # Always set the ID for the copied library
+            install_name_tool -id "$loader_path" "$dest_lib_dir/$lib"
+          done
+
+          echo "=== AFTER fixing paths ==="
+          otool -L "$target_dylib"
+          ls -l "$dest_lib_dir"
+          
+          # Repack wheel
+          rm "$whl"
+          echo "--- Repacking wheel ---"
+          (cd "$unpacked_dir" && wheel pack . && mv *.whl ../)
+          cd .. # Back to dist
           echo "=== Final wheel filename ==="
-          ls -la "$whl"
+          ls -la *.whl
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
@@ -180,22 +192,25 @@ jobs:
 
             wheel unpack "$WHL_FILE"
             WHEEL_DIR=$(echo "$WHL_FILE" | cut -d "-" -f1 -f2)
-            DYLIB="$WHEEL_DIR/llvmlite/binding/libllvmlite.dylib"
-            DYLIBS_DIR="$WHEEL_DIR/llvmlite/.dylibs"
+            DYLIB_DIR="$WHEEL_DIR/llvmlite/binding"
+            DYLIB="$DYLIB_DIR/libllvmlite.dylib"
 
             # Check essential components exist
             [ -f "$DYLIB" ] || { echo "ERROR: $DYLIB not found"; exit 1; }
-            [ -d "$DYLIBS_DIR" ] || { echo "ERROR: $DYLIBS_DIR not found"; exit 1; }
 
-            # Check main dylib linking properties using otool and grep
-            otool -L "$DYLIB" | grep -q "/usr/lib/libSystem.B.dylib" || { echo "ERROR: System lib link missing or incorrect"; otool -L "$DYLIB"; exit 1; }
-            otool -l "$DYLIB" | grep -A 2 LC_RPATH | grep -q 'path @loader_path/.dylibs' || { echo "ERROR: RPATH '@loader_path/.dylibs' missing"; otool -l "$DYLIB" | grep LC_RPATH -A 3; exit 1; }
+            # Check main dylib linking properties
+            echo "--- Checking links for $DYLIB ---"
+            otool -L "$DYLIB"
+            otool -L "$DYLIB" | grep -q "/usr/lib/libSystem.B.dylib" || { echo "ERROR: System lib link missing or incorrect"; exit 1; }
 
-            # Check bundled libraries (existence and linkage)
+            # Check bundled libraries (existence and linkage in same dir)
+            echo "--- Checking bundled libraries in $DYLIB_DIR ---"
+            ls -l "$DYLIB_DIR"
             for LIB in libz.1.dylib libc++.1.dylib libunwind.1.dylib; do
-              [ -f "$DYLIBS_DIR/$LIB" ] || { echo "ERROR: Bundled lib $LIB missing in $DYLIBS_DIR"; ls -l "$DYLIBS_DIR"; exit 1; }
-              otool -L "$DYLIB" | grep -q "@rpath/$LIB" || { echo "ERROR: Link @rpath/$LIB missing in $DYLIB for $LIB"; otool -L "$DYLIB"; exit 1; }
+              [ -f "$DYLIB_DIR/$LIB" ] || { echo "ERROR: Bundled lib $LIB missing in $DYLIB_DIR"; exit 1; }
+              otool -L "$DYLIB" | grep -q "@loader_path/$LIB" || { echo "ERROR: Link @loader_path/$LIB missing in $DYLIB for $LIB"; exit 1; }
             done
+            echo "Bundled library checks passed."
 
             # Clean up
             rm -rf "$WHEEL_DIR"
