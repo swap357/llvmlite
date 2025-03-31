@@ -223,8 +223,13 @@ jobs:
           # Remove ABI tag from wheel
           cd dist
           whl=$(ls -t *.whl | head -n 1)
-          PYTHON_ABI="cp${{ matrix.python-version }}"
-          python -m wheel tags --remove --abi-tag="$PYTHON_ABI" "$whl"
+          echo "Processing wheel: $whl"
+          
+          # Remove all ABI tags
+          python -m wheel tags --abi-tag=none "$whl"
+          
+          echo "=== Wheel tags after removal ==="
+          python -m wheel tags "$whl"
 
           # Install wheel and run tests
           python -m pip install -v *.whl
