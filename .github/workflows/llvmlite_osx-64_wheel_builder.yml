@@ -241,8 +241,7 @@ jobs:
           echo "=== Pip Information ==="
           python -m pip --version
           python -m pip debug --verbose
-          python -c "import sys; from packaging.tags import sys_tags; print('System supported tags:'); [print(tag) for tag in sys_tags()]"
-
+          
           # Try to install with verbose output
           echo "=== Attempting pip install with verbose output ==="
           python -m pip install -v *.whl
