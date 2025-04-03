@@ -24,7 +24,7 @@ env:
 
 jobs:
   osx-64-build:
-    name: osx-64-build
+    name: osx-64-build-py${{ matrix.python-version }}
     runs-on: macos-13
     defaults:
       run:
@@ -151,8 +151,50 @@ jobs:
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: error
 
+  osx-64-test:
+    name: osx-64-test-py${{ matrix.python-version }}
+    needs: osx-64-build
+    runs-on: macos-13
+    defaults:
+      run:
+        shell: bash -el {0}
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+      fail-fast: false
+
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download llvmlite wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: llvmlite-osx-64-py${{ matrix.python-version }}
+          path: dist
+
+      - name: Install and test
+        run: |
+          set -ex # Exit on error, print commands
+          # Get the Python executable path (using the one setup by actions/setup-python)
+          PYTHON_PATH=$(which python${{ matrix.python-version }})
+
+          # Upgrade pip and install wheel
+          $PYTHON_PATH -m pip install --upgrade pip wheel
+
+          # Install wheel and run tests
+          cd dist
+          whl=$(ls -t *.whl | head -n 1)
+          echo "Using wheel: $whl"
+          $PYTHON_PATH -m pip install -v "$whl"
+
+          # Run tests
+          $PYTHON_PATH -m llvmlite.tests
+
   osx-64-validate:
-    name: osx-64-validate
+    name: osx-64-validate-py${{ matrix.python-version }}
     needs: osx-64-build
     runs-on: macos-13
     defaults:
@@ -218,44 +260,3 @@ jobs:
             rm -rf "$WHEEL_DIR"
             echo "=== Validation successful for $WHL_FILE ==="
           done
-
-  osx-64-test:
-    name: osx-64-test
-    needs: osx-64-build
-    runs-on: macos-13
-    defaults:
-      run:
-        shell: bash -el {0}
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
-      fail-fast: false
-
-    steps:
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Download llvmlite wheel
-        uses: actions/download-artifact@v4
-        with:
-          name: llvmlite-osx-64-py${{ matrix.python-version }}
-          path: dist
-
-      - name: Install and test
-        run: |
-          # Get the Python executable path
-          PYTHON_PATH=$(which python${{ matrix.python-version }})
-          
-          # Upgrade pip and install wheel
-          $PYTHON_PATH -m pip install --upgrade pip wheel
-
-          # Install wheel and run tests (Removed wheel tags modification)
-          cd dist
-          whl=$(ls -t *.whl | head -n 1)
-          echo "Using wheel: $whl"
-          $PYTHON_PATH -m pip install -v "$whl"
-          
-          # Run tests
-          $PYTHON_PATH -m llvmlite.tests
