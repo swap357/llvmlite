@@ -1,9 +1,9 @@
-name: llvmlite_linux-64_conda_builder
+name: llvmlite_osx-arm64_conda_builder
 
 on:
   pull_request:
     paths:
-      - .github/workflows/llvmlite_linux-64_conda_builder.yml
+      - .github/workflows/llvmlite_osx-arm64_conda_builder.yml
   workflow_dispatch:
     inputs:
       llvmdev_run_id:
@@ -17,9 +17,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linux-64-build:
-    name: linux-64-build
-    runs-on: ubuntu-24.04
+  osx-arm64-build:
+    name: osx-arm64-build
+    runs-on: macos-14
     defaults:
       run:
         shell: bash -elx {0}
@@ -48,7 +48,7 @@ jobs:
         if: ${{ inputs.llvmdev_run_id != '' }}
         uses: actions/download-artifact@v4
         with:
-          name: llvmdev_linux-64
+          name: llvmdev_osx-arm64
           path: llvmdev_conda_packages
           run-id: ${{ inputs.llvmdev_run_id }}
           repository: ${{ github.repository }}
@@ -68,7 +68,7 @@ jobs:
       - name: Upload llvmlite conda package
         uses: actions/upload-artifact@v4
         with:
-          name: llvmlite-linux-64-py${{ matrix.python-version }}
+          name: llvmlite-osx-arm64-py${{ matrix.python-version }}
           path: conda_channel_dir
           compression-level: 0
           retention-days: 7
@@ -77,10 +77,10 @@ jobs:
       - name: Show Workflow Run ID
         run: "echo \"Workflow Run ID: ${{ github.run_id }}\""
 
-  linux-64-test:
-    name: linux-64-test
-    needs: linux-64-build
-    runs-on: ubuntu-24.04
+  osx-arm64-test:
+    name: osx-arm64-test
+    needs: osx-arm64-build
+    runs-on: macos-14
     defaults:
       run:
         shell: bash -elx {0}
@@ -96,11 +96,11 @@ jobs:
       - name: Download llvmlite artifact
         uses: actions/download-artifact@v4
         with:
-          name: llvmlite-linux-64-py${{ matrix.python-version }}
+          name: llvmlite-osx-arm64-py${{ matrix.python-version }}
 
       - name: Install conda-build and llvmlite
         run: |
           conda install conda-build
 
       - name: Run tests
-        run: conda build --test linux-64/llvmlite*.conda
+        run: conda build --test osx-arm64/llvmlite*.conda
