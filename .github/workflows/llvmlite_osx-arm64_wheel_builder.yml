@@ -67,9 +67,25 @@ jobs:
           fi
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
 
-      # Add this temporary step to list Xcode versions
+      # Optional: Keep this step to always list available Xcodes
       - name: List Available Xcode Versions
         run: ls /Applications | grep Xcode
+
+      # Add step to select the desired older Xcode
+      - name: Select Older Xcode (Xcode 15.0)
+        run: |
+          XCODE_PATH="/Applications/Xcode_15.0.app" # Using oldest available from list
+          if [ -d "$XCODE_PATH" ]; then
+            echo "Selecting Xcode at $XCODE_PATH"
+            sudo xcode-select -s "$XCODE_PATH"
+          else
+            echo "Error: Xcode path $XCODE_PATH not found!"
+            exit 1
+          fi
+
+      # Add step to verify SDKs in the selected Xcode
+      - name: List SDKs in Selected Xcode
+        run: ls -l "$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs"
 
       - name: Build wheel
         env:
