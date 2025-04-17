@@ -148,20 +148,19 @@ jobs:
 
       - name: Install and test
         run: |
-          # Get the Python executable path
           PYTHON_PATH=$(which python${{ matrix.python-version }})
+          $PYTHON_PATH -m venv .venv
+          source .venv/bin/activate
 
           # Upgrade pip and install wheel
-          $PYTHON_PATH -m pip install --upgrade pip wheel
+          python -m pip install --upgrade pip wheel
 
-          # Install wheel and run tests
+          # Install the downloaded wheel
           cd dist
-          whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
-          echo "Using wheel: $whl"
-          $PYTHON_PATH -m pip install -v "$whl"
+          python -m pip install -v ./*.whl
 
           # Run tests
-          $PYTHON_PATH -m llvmlite.tests
+          python -m llvmlite.tests
 
   osx-arm64-upload:
     name: osx-arm64-upload
