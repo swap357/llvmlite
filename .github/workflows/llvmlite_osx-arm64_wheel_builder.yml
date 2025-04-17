@@ -67,14 +67,9 @@ jobs:
           fi
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
 
-      - name: Setup platform-specific requirements
-        run: |
-          source ./buildscripts/github/setup_platform.sh "osx-arm64"
-
       - name: Build wheel
         env:
-          MACOSX_DEPLOYMENT_TARGET: "10.10"
-          SDKROOT: "/opt/MacOSX10.10.sdk"
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
           arch -arm64 python -m build
 
