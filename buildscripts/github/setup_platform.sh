@@ -7,7 +7,7 @@ PLATFORM=$1
 echo "Setting up platform-specific requirements for ${PLATFORM}"
 
 case "${PLATFORM}" in
-    "osx-64")
+    "osx-64" | "osx-arm64")
         echo "Setting up macOS SDK for osx-64 build"
         sdk_dir="buildscripts/github"
         mkdir -p "${sdk_dir}"
