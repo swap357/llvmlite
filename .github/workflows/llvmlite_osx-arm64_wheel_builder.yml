@@ -31,7 +31,7 @@ jobs:
         shell: bash -elx {0}
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12"]
       fail-fast: false
 
     steps:
@@ -91,15 +91,7 @@ jobs:
             target=$(find . -iname "libllvmlite.dylib")
             echo "Found dylib at: $target"
 
-            echo "=== BEFORE ==="
-            otool -L "$target"
-
-            # Fix all @rpath libraries
-            install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/libz.1.dylib" "$target"
-            install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/libc++.1.dylib" "$target"
-            install_name_tool -change "@rpath/libunwind.1.dylib" "/usr/lib/libunwind.1.dylib" "$target"
-
-            echo "=== AFTER ==="
+            echo "=== otool -L $target ==="
             otool -L "$target"
 
             echo "=== $target_dir contents ==="
