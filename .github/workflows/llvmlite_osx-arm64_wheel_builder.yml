@@ -174,6 +174,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # Add step to find libz location
+      - name: Find libz.1.dylib location
+        run: |
+          echo "Checking common locations for libz.1.dylib..."
+          ls -l /usr/lib/libz.1.dylib 2>/dev/null || echo "Not found in /usr/lib"
+          ls -l /opt/homebrew/lib/libz.1.dylib 2>/dev/null || echo "Not found in /opt/homebrew/lib"
+          echo "If found, use that path in the build job's install_name_tool command."
+          # Add other potential locations if needed, e.g.:
+          find /System -name libz.1.dylib 2>/dev/null
+
       - name: Download llvmlite wheel
         uses: actions/download-artifact@v4
         with:
