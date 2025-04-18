@@ -136,6 +136,14 @@ jobs:
         run: |
           echo "--- Conda Info ---"
           conda info
+          echo "--- Conda Version ---"
+          conda --version
+          echo "--- Conda Package List ---"
+          conda list
+          echo "--- Check for libunwind ---"
+          conda list | grep -i "libunwind" || echo "libunwind not found in conda packages"
+          echo "--- Find system libunwind ---"
+          find /usr/lib -name "libunwind*" || echo "No system libunwind found in /usr/lib"
           echo "--- Xcode Version (After Miniconda) ---"
           xcodebuild -version || echo "Xcode not found or xcodebuild failed"
           echo "--- Selected Xcode Path (After Miniconda) ---"
