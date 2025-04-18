@@ -69,23 +69,15 @@ jobs:
 
       - name: Build wheel
         env:
-          MACOSX_DEPLOYMENT_TARGET: "13.0"
-          # Use more aggressive linker flags
-          CFLAGS: "-v"
-          LDFLAGS: "-v -Wl,-rpath,/opt/homebrew/lib -Wl,-rpath,/usr/lib"
+          MACOSX_DEPLOYMENT_TARGET: "11.1"
         run: |
-          # Show Python command to diagnose environment
-          which python
-          python --version
-          
-          # Create a build wheel with verbose output
           arch -arm64 python -m build --verbose
 
       - name: Fix macOS wheel library paths
         run: |
           # Ensure wheel tool is available
           python -m pip install wheel
-          
+
           cd dist
           whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
           echo "Processing wheel: $whl"
@@ -112,7 +104,7 @@ jobs:
           else
             echo "RPATH for /opt/homebrew/lib already exists"
           fi
-          
+
           # Check and add /usr/lib as a fallback if missing
           if ! otool -l "$target" | grep -q "/usr/lib"; then
             echo "Adding /usr/lib to RPATH..."
