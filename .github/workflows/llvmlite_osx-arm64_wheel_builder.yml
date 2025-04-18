@@ -65,16 +65,27 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
-          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build
+          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
 
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "13.0"
+          # Use more aggressive linker flags
+          CFLAGS: "-v"
+          LDFLAGS: "-v -Wl,-rpath,/opt/homebrew/lib -Wl,-rpath,/usr/lib"
         run: |
-          arch -arm64 python -m build
+          # Show Python command to diagnose environment
+          which python
+          python --version
+          
+          # Create a build wheel with verbose output
+          arch -arm64 python -m build --verbose
 
       - name: Fix macOS wheel library paths
         run: |
+          # Ensure wheel tool is available
+          python -m pip install wheel
+          
           cd dist
           whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
           echo "Processing wheel: $whl"
@@ -91,19 +102,26 @@ jobs:
           echo "Found dylib at: $target"
 
           echo "=== BEFORE ==="
+          otool -L "$target"
           otool -l "$target" | grep -A2 LC_RPATH || echo "No RPATHs found"
 
           # Add /opt/homebrew/lib as a runtime search path
           echo "Adding /opt/homebrew/lib to RPATH..."
           install_name_tool -add_rpath "/opt/homebrew/lib" "$target"
+          
+          # Also add /usr/lib as a fallback
+          echo "Adding /usr/lib to RPATH..."
+          install_name_tool -add_rpath "/usr/lib" "$target"
 
           echo "=== AFTER ==="
           # Verify the RPATH was added
+          otool -L "$target"
+          otool -l "$target" | grep -A2 LC_RPATH
+          
           if ! otool -l "$target" | grep -q "/opt/homebrew/lib"; then
-            echo "Error: Failed to add RPATH!"
+            echo "Error: Failed to add RPATH to /opt/homebrew/lib!"
             exit 1
           fi
-          otool -l "$target" | grep -A2 LC_RPATH
 
           echo "=== $target_dir contents ==="
           find . -ls
@@ -191,7 +209,15 @@ jobs:
 
       - name: Install and test
         run: |
+          # Install zlib from homebrew - this is crucial 
+          echo "Installing zlib from Homebrew..."
           brew install zlib
+          
+          # Verify zlib was installed
+          echo "=== Homebrew zlib location ==="
+          ls -la /opt/homebrew/lib/libz*.dylib || echo "No libz found in /opt/homebrew/lib"
+          
+          # Create virtual environment with system Python
           PYTHON_PATH=$(which python${{ matrix.python-version }})
           $PYTHON_PATH -m venv .venv
           source .venv/bin/activate
@@ -201,8 +227,19 @@ jobs:
 
           # Install the downloaded wheel
           cd dist
+          
+          # Show available wheel files
+          echo "=== Available wheel files ==="
+          ls -la
+          
           python -m pip install -v ./*.whl
 
+          # Inspect the installed dylib
+          echo "=== Installed dylib dependencies ==="
+          DYLIB_PATH=$(find $(python -c "import llvmlite; print(llvmlite.__path__[0])") -name "libllvmlite.dylib")
+          echo "Found dylib at: $DYLIB_PATH"
+          otool -L "$DYLIB_PATH"
+          
           # Run tests
           python -m llvmlite.tests
 
