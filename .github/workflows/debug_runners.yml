@@ -61,6 +61,22 @@ jobs:
           sw_vers
           echo "--- Available Xcode Applications ---"
           ls -ld /Applications/Xcode* || echo "Could not list Xcode applications"
+          
+          echo "--- Finding Oldest Installed Xcode ---"
+          OLDEST_XCODE_PATH=$(ls -d /Applications/Xcode_*.app | sort -V | head -n 1)
+          if [ -n "$OLDEST_XCODE_PATH" ] && [ -d "$OLDEST_XCODE_PATH" ]; then
+            echo "Oldest Xcode found: $OLDEST_XCODE_PATH"
+            OLDEST_XCODE_SDK_PATH="$OLDEST_XCODE_PATH/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+            echo "--- SDKs in Oldest Xcode ($OLDEST_XCODE_PATH) ---"
+            if [ -d "$OLDEST_XCODE_SDK_PATH" ]; then
+              ls -l "$OLDEST_XCODE_SDK_PATH"
+            else
+              echo "SDK directory not found at: $OLDEST_XCODE_SDK_PATH"
+            fi
+          else
+            echo "Could not determine the oldest Xcode installation."
+          fi
+          
           echo "--- Selected Xcode Path ---"
           SELECTED_XCODE=$(xcode-select -p || echo "xcode-select command failed")
           echo "$SELECTED_XCODE"
