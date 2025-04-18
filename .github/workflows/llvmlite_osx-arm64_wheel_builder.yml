@@ -42,9 +42,15 @@ jobs:
 
       - name: Install Miniconda
         run: |
-          echo "Installing Miniconda 24.9.2"
-          # Download specific Miniconda version
-          wget https://repo.anaconda.com/miniconda/Miniconda3-24.9.2-MacOSX-arm64.sh -O miniconda.sh
+          echo "Installing Miniconda for Python ${{ matrix.python-version }}"
+          # Convert Python version format from "3.12" to "312" for the URL
+          PYTHON_VER=$(echo "${{ matrix.python-version }}" | tr -d '.')
+          
+          # Download specific Miniconda version for the Python version
+          MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-py${PYTHON_VER}_24.5.0-0-MacOSX-arm64.sh"
+          echo "Downloading from: $MINICONDA_URL"
+          wget "$MINICONDA_URL" -O miniconda.sh
+          
           # Install Miniconda silently
           bash miniconda.sh -b -p $HOME/miniconda
           # Add to path
