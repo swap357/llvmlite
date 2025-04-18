@@ -40,40 +40,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Miniconda
-        run: |
-          echo "Installing Miniconda for Python ${{ matrix.python-version }}"
-          # Convert Python version format from "3.12" to "312" for the URL
-          PYTHON_VER=$(echo "${{ matrix.python-version }}" | tr -d '.')
-          
-          # Download specific Miniconda version for the Python version
-          MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-py${PYTHON_VER}_24.5.0-0-MacOSX-arm64.sh"
-          echo "Downloading from: $MINICONDA_URL"
-          wget "$MINICONDA_URL" -O miniconda.sh
-          
-          # Install Miniconda silently
-          bash miniconda.sh -b -p $HOME/miniconda
-          # Add to path
-          echo "$HOME/miniconda/bin" >> $GITHUB_PATH
-          # Initialize for this shell
-          source $HOME/miniconda/bin/activate
-          # Verify installation
-          conda --version
-          conda info
-
-      - name: Create Conda Environment
-        run: |
-          # Create a new environment with the specified Python version
-          conda create -n build_env python=${{ matrix.python-version }} -y
-          # Activate the environment
-          source $HOME/miniconda/bin/activate
-          conda activate build_env
-          # Verify Python version
-          python --version
-          which python
-          
-          # Make conda commands available to subsequent steps
-          echo "CONDA_PREFIX=$CONDA_PREFIX" >> $GITHUB_ENV
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+          conda-remove-defaults: true
+          auto-update-conda: true
+          auto-activate-base: true
 
       - name: Download llvmdev Artifact
         if: ${{ inputs.llvmdev_run_id != '' }}
@@ -87,26 +60,22 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          # Activate the conda environment
-          source $HOME/miniconda/bin/activate
-          conda activate build_env
-          
           if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
               CHAN="file:///${{ env.LOCAL_LLVMDEV_ARTIFACT_PATH }}"
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build -y
+          # Check LLVM configuration
+          echo "LLVM Config info:"
+          which llvm-config
+          llvm-config --version
+          llvm-config --components
 
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.1"
         run: |
-          # Activate the conda environment
-          source $HOME/miniconda/bin/activate
-          conda activate build_env
-          
-          # Build the wheel
           arch -arm64 python -m build --verbose
 
       - name: Fix macOS wheel library paths
