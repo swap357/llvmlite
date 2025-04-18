@@ -66,6 +66,15 @@ jobs:
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build -y
+
+          if [ -f "$CONDA_PREFIX/lib/libunwind.1.0.dylib" ]; then
+            echo "Found libunwind in conda environment, moving it temporarily"
+            mkdir -p $CONDA_PREFIX/lib/disabled
+            mv $CONDA_PREFIX/lib/libunwind.1.0.dylib $CONDA_PREFIX/lib/disabled/
+            # Also move any symbolic links
+            find $CONDA_PREFIX/lib -name "libunwind*.dylib" -type l -exec mv {} $CONDA_PREFIX/lib/disabled/ \;
+          fi
+
           # Check LLVM configuration
           echo "LLVM Config info:"
           which llvm-config
