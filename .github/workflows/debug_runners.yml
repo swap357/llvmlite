@@ -1,0 +1,233 @@
+name: Debug Runners
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/debug_runners.yml
+
+jobs:
+  debug:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-64
+            runner: ubuntu-24.04
+          - platform: linux-aarch64
+            runner: ubuntu-24.04-arm
+          - platform: osx-64
+            runner: macos-13
+          - platform: osx-arm64
+            runner: macos-14
+          - platform: win-64
+            runner: windows-2019
+
+    runs-on: ${{ matrix.runner }}
+    name: Debug ${{ matrix.platform }} on ${{ matrix.runner }}
+
+    steps:
+      - name: Display Runner Context
+        run: |
+          echo "Runner OS: ${{ runner.os }}"
+          echo "Runner Architecture: ${{ runner.arch }}"
+          echo "Runner Name: ${{ runner.name }}"
+          echo "Platform Var: ${{ matrix.platform }}"
+          echo "Runner Var: ${{ matrix.runner }}"
+        shell: bash
+
+      - name: Linux Toolchain Info
+        if: startsWith(matrix.platform, 'linux')
+        run: |
+          echo "--- System Info ---"
+          uname -a
+          cat /etc/os-release || lsb_release -a || echo "OS info command failed"
+          echo "--- GCC Version ---"
+          gcc --version || echo "GCC not found"
+          echo "--- Clang Version ---"
+          clang --version || echo "Clang not found"
+          echo "--- Linker Version (ld) ---"
+          ld --version || echo "ld not found"
+          echo "--- Python Version ---"
+          python --version || python3 --version || echo "Python not found"
+          echo "--- CMake Version ---"
+          cmake --version || echo "CMake not found"
+        shell: bash
+
+      - name: Setup Miniconda (Linux)
+        if: startsWith(matrix.platform, 'linux')
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          auto-activate-base: true # Activate base env
+
+      - name: Linux Toolchain Info (After Miniconda)
+        if: startsWith(matrix.platform, 'linux')
+        run: |
+          echo "--- Conda Info ---"
+          conda info
+          echo "--- GCC Version (After Miniconda) ---"
+          gcc --version || echo "GCC not found"
+          echo "--- Clang Version (After Miniconda) ---"
+          clang --version || echo "Clang not found"
+          echo "--- Linker Version (ld) (After Miniconda) ---"
+          ld --version || echo "ld not found"
+          echo "--- Python Version (After Miniconda) ---"
+          python --version || python3 --version || echo "Python not found"
+          echo "--- CMake Version (After Miniconda) ---"
+          cmake --version || echo "CMake not found"
+          echo "--- PATH (After Miniconda) ---"
+          echo $PATH
+        shell: bash -el {0} # Use -el to ensure conda env is sourced
+
+      - name: macOS Toolchain Info
+        if: startsWith(matrix.platform, 'osx')
+        run: |
+          echo "--- System Info ---"
+          uname -a
+          sw_vers
+          echo "--- Available Xcode Applications ---"
+          ls -ld /Applications/Xcode* || echo "Could not list Xcode applications"
+          
+          echo "--- Finding Oldest Installed Xcode ---"
+          OLDEST_XCODE_PATH=$(ls -d /Applications/Xcode_*.app | sort -V | head -n 1)
+          if [ -n "$OLDEST_XCODE_PATH" ] && [ -d "$OLDEST_XCODE_PATH" ]; then
+            echo "Oldest Xcode found: $OLDEST_XCODE_PATH"
+            OLDEST_XCODE_SDK_PATH="$OLDEST_XCODE_PATH/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+            echo "--- SDKs in Oldest Xcode ($OLDEST_XCODE_PATH) ---"
+            if [ -d "$OLDEST_XCODE_SDK_PATH" ]; then
+              ls -l "$OLDEST_XCODE_SDK_PATH"
+            else
+              echo "SDK directory not found at: $OLDEST_XCODE_SDK_PATH"
+            fi
+          else
+            echo "Could not determine the oldest Xcode installation."
+          fi
+          
+          echo "--- Selected Xcode Path ---"
+          SELECTED_XCODE=$(xcode-select -p || echo "xcode-select command failed")
+          echo "$SELECTED_XCODE"
+          if [ -n "$SELECTED_XCODE" ] && [ -d "$SELECTED_XCODE" ]; then
+            echo "--- Contents of Selected Xcode Developer Dir ---"
+            ls -l "$SELECTED_XCODE"
+            echo "--- SDKs in Selected Xcode ---"
+            ls -l "$SELECTED_XCODE/Platforms/MacOSX.platform/Developer/SDKs" || echo "Could not list SDKs in selected Xcode"
+          fi
+          echo "--- Xcode Version (selected) ---"
+          xcodebuild -version || echo "Xcode not found or xcodebuild failed"
+          echo "--- Available SDKs (via xcodebuild) ---"
+          xcodebuild -showsdks || echo "Could not list SDKs via xcodebuild"
+          echo "--- Clang Version ---"
+          clang --version || echo "Clang not found"
+          echo "--- Python Version ---"
+          python --version || python3 --version || echo "Python not found"
+          echo "--- CMake Version ---"
+          cmake --version || echo "CMake not found"
+        shell: bash
+
+      - name: Setup Miniconda (macOS)
+        if: startsWith(matrix.platform, 'osx')
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          auto-activate-base: true
+
+      - name: macOS Toolchain Info (After Miniconda)
+        if: startsWith(matrix.platform, 'osx')
+        run: |
+          echo "--- Conda Info ---"
+          conda info
+          echo "--- Conda Version ---"
+          conda --version
+          echo "--- Conda Package List ---"
+          conda list
+          echo "--- Check for libunwind ---"
+          conda list | grep -i "libunwind" || echo "libunwind not found in conda packages"
+          echo "--- Find system libunwind ---"
+          find /usr/lib -name "libunwind*" || echo "No system libunwind found in /usr/lib"
+          echo "--- Xcode Version (After Miniconda) ---"
+          xcodebuild -version || echo "Xcode not found or xcodebuild failed"
+          echo "--- Selected Xcode Path (After Miniconda) ---"
+          xcode-select -p || echo "xcode-select command failed"
+          echo "--- Clang Version (After Miniconda) ---"
+          clang --version || echo "Clang not found"
+          echo "--- Python Version (After Miniconda) ---"
+          python --version || python3 --version || echo "Python not found"
+          echo "--- CMake Version (After Miniconda) ---"
+          cmake --version || echo "CMake not found"
+          echo "--- PATH (After Miniconda) ---"
+          echo $PATH
+        shell: bash -el {0} # Use -el
+
+      - name: Windows Toolchain Info
+        if: matrix.platform == 'win-64'
+        shell: pwsh # Use PowerShell for better Windows scripting
+        run: |
+          echo "--- System Info ---"
+          Get-ComputerInfo | Format-List WindowsProductName, WindowsVersion, OsArchitecture
+          echo "--- Visual Studio Installations (via vswhere) ---"
+          try {
+            $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+            if (Test-Path $vswhere) {
+              & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+              $vsPath = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
+              if ($vsPath) {
+                echo "Found VS with C++ tools at: $vsPath"
+                $vcvarsScript = Join-Path $vsPath "VC\Auxiliary\Build\vcvars64.bat" # Assuming 64-bit build tools needed
+                if (Test-Path $vcvarsScript) {
+                   Write-Host "--- Running vcvars64.bat and checking cl.exe ---"
+                   # Execute vcvars64.bat and then cl.exe /? in the same cmd session
+                   # Use cmd /c to run the batch file and the command within a cmd shell
+                   cmd /c "`"$vcvarsScript`" > nul && cl /?" | Out-Host
+                } else {
+                  Write-Warning "vcvars64.bat not found at expected location: $vcvarsScript"
+                }
+              } else {
+                Write-Warning "vswhere did not find a suitable VS installation path with C++ tools."
+                Write-Host "--- Searching for cl.exe manually (might take time) ---"
+                Get-ChildItem -Path "C:\Program Files*\Microsoft Visual Studio" -Recurse -Filter cl.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName || Write-Warning "cl.exe not found via search."
+              }
+            } else {
+               Write-Warning "vswhere.exe not found at $vswhere"
+            }
+          } catch {
+            Write-Error "Error detecting Visual Studio: $($_.Exception.Message)"
+          }
+          echo "--- Python Version ---"
+          python --version || py --version || Write-Warning "Python not found"
+          echo "--- CMake Version ---"
+          cmake --version || Write-Warning "CMake not found"
+          echo "--- PATH ---"
+          echo $env:PATH
+
+      - name: Setup Miniconda (Windows)
+        if: matrix.platform == 'win-64'
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          auto-activate-base: true
+
+      - name: Windows Toolchain Info (After Miniconda)
+        if: matrix.platform == 'win-64'
+        shell: pwsh # Use PowerShell
+        run: |
+          echo "--- Conda Info ---"
+          conda info
+          echo "--- Visual Studio / Compiler Info (After Miniconda) ---"
+          echo "--- Checking for cl.exe in PATH ---"
+          (Get-Command cl.exe -ErrorAction SilentlyContinue) | Format-List || Write-Host "cl.exe not found in PATH"
+          cl /? | Out-Host -Width 300 || Write-Host "Could not run cl.exe from PATH"
+
+          echo "--- Checking System VS Installations (via vswhere, might be shadowed by Conda) ---"
+          try {
+            $vswhere = "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe"
+            if (Test-Path $vswhere) {
+              & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+            } else { Write-Warning "vswhere.exe not found at $vswhere" }
+          } catch { Write-Error "Error checking vswhere: $($_.Exception.Message)" }
+
+          echo "--- Python Version (After Miniconda) ---"
+          python --version || py --version || Write-Warning "Python not found"
+          echo "--- CMake Version (After Miniconda) ---"
+          cmake --version || Write-Warning "CMake not found"
+          echo "--- PATH (After Miniconda) ---"
+          echo $env:PATH 
