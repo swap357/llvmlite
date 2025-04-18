@@ -40,28 +40,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Conda Environment
+      - name: Install Miniconda
         run: |
-          # Find and setup conda in the macOS-14 runner
-          echo "Setting up conda environment"
-          
-          # Initialize conda
+          echo "Installing Miniconda"
+          # Download Miniconda installer
+          wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh -O miniconda.sh
+          # Install Miniconda silently
+          bash miniconda.sh -b -p $HOME/miniconda
+          # Add to path
+          echo "$HOME/miniconda/bin" >> $GITHUB_PATH
+          # Initialize for this shell
+          source $HOME/miniconda/bin/activate
+          # Verify installation
           conda --version
           conda info
-          
-          # Create and activate a conda environment for the build
+
+      - name: Create Conda Environment
+        run: |
+          # Create a new environment with the specified Python version
           conda create -n build_env python=${{ matrix.python-version }} -y
-          source $(conda info --base)/etc/profile.d/conda.sh
+          # Activate the environment
+          source $HOME/miniconda/bin/activate
           conda activate build_env
-          
-          # Verify environment
+          # Verify Python version
           python --version
           which python
           
           # Make conda commands available to subsequent steps
           echo "CONDA_PREFIX=$CONDA_PREFIX" >> $GITHUB_ENV
-          echo "$(conda info --base)/bin" >> $GITHUB_PATH
-          echo "$(conda info --base)/envs/build_env/bin" >> $GITHUB_PATH
 
       - name: Download llvmdev Artifact
         if: ${{ inputs.llvmdev_run_id != '' }}
@@ -76,7 +82,7 @@ jobs:
       - name: Install build dependencies
         run: |
           # Activate the conda environment
-          source $(conda info --base)/etc/profile.d/conda.sh
+          source $HOME/miniconda/bin/activate
           conda activate build_env
           
           if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
@@ -91,7 +97,7 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: "11.1"
         run: |
           # Activate the conda environment
-          source $(conda info --base)/etc/profile.d/conda.sh
+          source $HOME/miniconda/bin/activate
           conda activate build_env
           
           # Build the wheel
