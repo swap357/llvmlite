@@ -44,6 +44,7 @@ case "${PLATFORM}" in
         sudo mkdir -p /opt
         sudo tar -xf MacOSX11.1.sdk.tar.xz -C /opt
         echo "macOS SDK setup complete"
+        ;;
     *)
         echo "No specific setup required for platform: ${PLATFORM}"
         ;;
