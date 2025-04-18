@@ -40,13 +40,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          python-version: ${{ matrix.python-version }}
-          conda-remove-defaults: true
-          auto-update-conda: true
-          auto-activate-base: true
+      - name: Setup Conda Environment
+        run: |
+          # Find and setup conda in the macOS-14 runner
+          echo "Setting up conda environment"
+          
+          # Initialize conda
+          conda --version
+          conda info
+          
+          # Create and activate a conda environment for the build
+          conda create -n build_env python=${{ matrix.python-version }} -y
+          source $(conda info --base)/etc/profile.d/conda.sh
+          conda activate build_env
+          
+          # Verify environment
+          python --version
+          which python
+          
+          # Make conda commands available to subsequent steps
+          echo "CONDA_PREFIX=$CONDA_PREFIX" >> $GITHUB_ENV
+          echo "$(conda info --base)/bin" >> $GITHUB_PATH
+          echo "$(conda info --base)/envs/build_env/bin" >> $GITHUB_PATH
 
       - name: Download llvmdev Artifact
         if: ${{ inputs.llvmdev_run_id != '' }}
@@ -60,17 +75,26 @@ jobs:
 
       - name: Install build dependencies
         run: |
+          # Activate the conda environment
+          source $(conda info --base)/etc/profile.d/conda.sh
+          conda activate build_env
+          
           if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
               CHAN="file:///${{ env.LOCAL_LLVMDEV_ARTIFACT_PATH }}"
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
-          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build
+          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build -y
 
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.1"
         run: |
+          # Activate the conda environment
+          source $(conda info --base)/etc/profile.d/conda.sh
+          conda activate build_env
+          
+          # Build the wheel
           arch -arm64 python -m build --verbose
 
       - name: Fix macOS wheel library paths
