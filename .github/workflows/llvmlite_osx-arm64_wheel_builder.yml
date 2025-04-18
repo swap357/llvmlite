@@ -69,7 +69,7 @@ jobs:
 
       - name: Build wheel
         env:
-          MACOSX_DEPLOYMENT_TARGET: "13.0"
+          MACOSX_DEPLOYMENT_TARGET: "14.0"
         run: |
           arch -arm64 python -m build
 
