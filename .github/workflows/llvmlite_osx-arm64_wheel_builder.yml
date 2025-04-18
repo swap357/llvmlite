@@ -101,27 +101,28 @@ jobs:
           target=$(find . -iname "libllvmlite.dylib")
           echo "Found dylib at: $target"
 
-          echo "=== BEFORE ==="
+          echo "=== Checking Current Paths ==="
           otool -L "$target"
           otool -l "$target" | grep -A2 LC_RPATH || echo "No RPATHs found"
 
-          # Add /opt/homebrew/lib as a runtime search path
-          echo "Adding /opt/homebrew/lib to RPATH..."
-          install_name_tool -add_rpath "/opt/homebrew/lib" "$target"
-          
-          # Also add /usr/lib as a fallback
-          echo "Adding /usr/lib to RPATH..."
-          install_name_tool -add_rpath "/usr/lib" "$target"
-
-          echo "=== AFTER ==="
-          # Verify the RPATH was added
-          otool -L "$target"
-          otool -l "$target" | grep -A2 LC_RPATH
-          
+          # Check and add /opt/homebrew/lib as a runtime search path if missing
           if ! otool -l "$target" | grep -q "/opt/homebrew/lib"; then
-            echo "Error: Failed to add RPATH to /opt/homebrew/lib!"
-            exit 1
+            echo "Adding /opt/homebrew/lib to RPATH..."
+            install_name_tool -add_rpath "/opt/homebrew/lib" "$target"
+          else
+            echo "RPATH for /opt/homebrew/lib already exists"
           fi
+          
+          # Check and add /usr/lib as a fallback if missing
+          if ! otool -l "$target" | grep -q "/usr/lib"; then
+            echo "Adding /usr/lib to RPATH..."
+            install_name_tool -add_rpath "/usr/lib" "$target"
+          else
+            echo "RPATH for /usr/lib already exists"
+          fi
+
+          echo "=== Final RPATHs ==="
+          otool -l "$target" | grep -A2 LC_RPATH
 
           echo "=== $target_dir contents ==="
           find . -ls
