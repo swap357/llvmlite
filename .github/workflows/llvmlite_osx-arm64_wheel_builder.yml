@@ -69,43 +69,9 @@ jobs:
 
       - name: Build wheel
         env:
-          MACOSX_DEPLOYMENT_TARGET: "14.0"
+          MACOSX_DEPLOYMENT_TARGET: "13.0"
         run: |
           arch -arm64 python -m build
-
-      - name: Fix macOS wheel library paths
-        run: |
-          cd dist
-          whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
-          echo "Processing wheel: $whl"
-
-          # Unpack the wheel
-          wheel unpack "$whl"
-
-          # Get into the unpacked directory
-          target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
-          cd "$target_dir"
-
-          # Find the dylib
-          target=$(find . -iname "libllvmlite.dylib")
-          echo "Found dylib at: $target"
-
-          echo "=== BEFORE ==="
-          otool -l "$target"
-
-          install_name_tool -add_rpath "/opt/homebrew/lib" "$target"
-
-          echo "=== AFTER ==="
-          otool -l "$target"
-
-          echo "=== $target_dir contents ==="
-          find . -ls
-          echo "=== Write back to wheel ==="
-          cd ..
-          wheel pack "$target_dir"
-
-          echo "=== Final wheel filename ==="
-          ls -la ./*.whl # List wheel in dist dir
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
@@ -192,6 +158,7 @@ jobs:
 
       - name: Install and test
         run: |
+          brew install zlib
           PYTHON_PATH=$(which python${{ matrix.python-version }})
           $PYTHON_PATH -m venv .venv
           source .venv/bin/activate
