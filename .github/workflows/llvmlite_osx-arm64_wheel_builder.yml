@@ -40,10 +40,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup platform-specific requirements
-        run: |
-          source ./buildscripts/github/setup_platform.sh "osx-arm64"
-
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
@@ -74,63 +70,8 @@ jobs:
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.1"
-          SDKROOT: "/opt/MacOSX11.1.sdk"
         run: |
           arch -arm64 python -m build --verbose
-
-      - name: Fix macOS wheel library paths
-        run: |
-          # Ensure wheel tool is available
-          python -m pip install wheel
-
-          cd dist
-          whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
-          echo "Processing wheel: $whl"
-
-          # Unpack the wheel
-          wheel unpack "$whl"
-
-          # Get into the unpacked directory
-          target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
-          cd "$target_dir"
-
-          # Find the dylib
-          target=$(find . -iname "libllvmlite.dylib")
-          echo "Found dylib at: $target"
-
-          echo "=== Checking Current Paths ==="
-          otool -L "$target"
-          otool -l "$target" | grep -A2 LC_RPATH || echo "No RPATHs found"
-
-          # Check and add /opt/homebrew/lib as a runtime search path if missing
-          if ! otool -l "$target" | grep -q "/opt/homebrew/lib"; then
-            echo "Adding /opt/homebrew/lib to RPATH..."
-            install_name_tool -add_rpath "/opt/homebrew/lib" "$target"
-          else
-            echo "RPATH for /opt/homebrew/lib already exists"
-          fi
-
-          # Check and add /usr/lib as a fallback if missing
-          if ! otool -l "$target" | grep -q "/usr/lib"; then
-            echo "Adding /usr/lib to RPATH..."
-            install_name_tool -add_rpath "/usr/lib" "$target"
-          else
-            echo "RPATH for /usr/lib already exists"
-          fi
-
-          echo "=== Final RPATHs ==="
-          otool -l "$target" | grep -A2 LC_RPATH
-
-          echo "=== $target_dir contents ==="
-          find . -ls
-          echo "=== Write back to wheel ==="
-          cd ..
-          # Remove old wheel before packing to avoid confusion
-          rm "$whl"
-          wheel pack "$target_dir"
-
-          echo "=== Final wheel filename ==="
-          ls -la ./*.whl # List wheel in dist dir
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
@@ -206,15 +147,7 @@ jobs:
           path: dist
 
       - name: Install and test
-        run: |
-          # Install zlib from homebrew - this is crucial 
-          echo "Installing zlib from Homebrew..."
-          brew install zlib
-          
-          # Verify zlib was installed
-          echo "=== Homebrew zlib location ==="
-          ls -la /opt/homebrew/lib/libz*.dylib || echo "No libz found in /opt/homebrew/lib"
-          
+        run: |          
           # Create virtual environment with system Python
           PYTHON_PATH=$(which python${{ matrix.python-version }})
           $PYTHON_PATH -m venv .venv
@@ -225,19 +158,12 @@ jobs:
 
           # Install the downloaded wheel
           cd dist
-          
-          # Show available wheel files
-          echo "=== Available wheel files ==="
           ls -la
-          
           python -m pip install -v ./*.whl
-
-          # Inspect the installed dylib
           echo "=== Installed dylib dependencies ==="
           DYLIB_PATH=$(find $(python -c "import llvmlite; print(llvmlite.__path__[0])") -name "libllvmlite.dylib")
           echo "Found dylib at: $DYLIB_PATH"
           otool -L "$DYLIB_PATH"
-          
           # Run tests
           python -m llvmlite.tests
 
