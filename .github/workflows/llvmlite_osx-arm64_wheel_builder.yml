@@ -42,9 +42,9 @@ jobs:
 
       - name: Install Miniconda
         run: |
-          echo "Installing Miniconda"
-          # Download Miniconda installer
-          wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh -O miniconda.sh
+          echo "Installing Miniconda 24.9.2"
+          # Download specific Miniconda version
+          wget https://repo.anaconda.com/miniconda/Miniconda3-24.9.2-MacOSX-arm64.sh -O miniconda.sh
           # Install Miniconda silently
           bash miniconda.sh -b -p $HOME/miniconda
           # Add to path
