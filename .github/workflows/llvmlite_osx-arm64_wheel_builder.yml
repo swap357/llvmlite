@@ -91,12 +91,12 @@ jobs:
           echo "Found dylib at: $target"
 
           echo "=== BEFORE ==="
-          otool -l "$target" | grep -A2 LC_RPATH
+          otool -l "$target"
 
           install_name_tool -add_rpath "/opt/homebrew/lib" "$target"
 
           echo "=== AFTER ==="
-          otool -l "$target" | grep -A2 LC_RPATH
+          otool -l "$target"
 
           echo "=== $target_dir contents ==="
           find . -ls
