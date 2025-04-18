@@ -91,16 +91,12 @@ jobs:
           echo "Found dylib at: $target"
 
           echo "=== BEFORE ==="
-          otool -L "$target"
+          otool -l "$target" | grep -A2 LC_RPATH
 
-          # Fix all @rpath libraries (Adjust paths if necessary for ARM64/macOS 14 defaults)
-          # Standard system paths are usually safe
-          install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/libz.1.dylib" "$target"
-          install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/libc++.1.dylib" "$target"
-          install_name_tool -change "@rpath/libunwind.1.dylib" "/usr/lib/libunwind.1.dylib" "$target"
+          install_name_tool -add_rpath "/opt/homebrew/lib" "$target"
 
           echo "=== AFTER ==="
-          otool -L "$target"
+          otool -l "$target" | grep -A2 LC_RPATH
 
           echo "=== $target_dir contents ==="
           find . -ls
