@@ -73,6 +73,49 @@ jobs:
         run: |
           arch -arm64 python -m build
 
+      - name: Fix macOS wheel library paths
+        run: |
+          cd dist
+          whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
+          echo "Processing wheel: $whl"
+
+          # Unpack the wheel
+          wheel unpack "$whl"
+
+          # Get into the unpacked directory
+          target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
+          cd "$target_dir"
+
+          # Find the dylib
+          target=$(find . -iname "libllvmlite.dylib")
+          echo "Found dylib at: $target"
+
+          echo "=== BEFORE ==="
+          otool -l "$target" | grep -A2 LC_RPATH || echo "No RPATHs found"
+
+          # Add /opt/homebrew/lib as a runtime search path
+          echo "Adding /opt/homebrew/lib to RPATH..."
+          install_name_tool -add_rpath "/opt/homebrew/lib" "$target"
+
+          echo "=== AFTER ==="
+          # Verify the RPATH was added
+          if ! otool -l "$target" | grep -q "/opt/homebrew/lib"; then
+            echo "Error: Failed to add RPATH!"
+            exit 1
+          fi
+          otool -l "$target" | grep -A2 LC_RPATH
+
+          echo "=== $target_dir contents ==="
+          find . -ls
+          echo "=== Write back to wheel ==="
+          cd ..
+          # Remove old wheel before packing to avoid confusion
+          rm "$whl"
+          wheel pack "$target_dir"
+
+          echo "=== Final wheel filename ==="
+          ls -la ./*.whl # List wheel in dist dir
+
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
