@@ -59,12 +59,21 @@ jobs:
           echo "--- System Info ---"
           uname -a
           sw_vers
-          echo "--- Xcode Version ---"
-          xcodebuild -version || echo "Xcode not found"
+          echo "--- Available Xcode Applications ---"
+          ls -ld /Applications/Xcode* || echo "Could not list Xcode applications"
           echo "--- Selected Xcode Path ---"
-          xcode-select -p || echo "xcode-select command failed"
-          echo "--- Available SDKs ---"
-          xcodebuild -showsdks || echo "Could not list SDKs"
+          SELECTED_XCODE=$(xcode-select -p || echo "xcode-select command failed")
+          echo "$SELECTED_XCODE"
+          if [ -n "$SELECTED_XCODE" ] && [ -d "$SELECTED_XCODE" ]; then
+            echo "--- Contents of Selected Xcode Developer Dir ---"
+            ls -l "$SELECTED_XCODE"
+            echo "--- SDKs in Selected Xcode ---"
+            ls -l "$SELECTED_XCODE/Platforms/MacOSX.platform/Developer/SDKs" || echo "Could not list SDKs in selected Xcode"
+          fi
+          echo "--- Xcode Version (selected) ---"
+          xcodebuild -version || echo "Xcode not found or xcodebuild failed"
+          echo "--- Available SDKs (via xcodebuild) ---"
+          xcodebuild -showsdks || echo "Could not list SDKs via xcodebuild"
           echo "--- Clang Version ---"
           clang --version || echo "Clang not found"
           echo "--- Python Version ---"
