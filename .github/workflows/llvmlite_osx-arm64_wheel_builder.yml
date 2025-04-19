@@ -93,30 +93,10 @@ jobs:
             whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
             echo "Processing wheel: $whl"
 
-            # Unpack the wheel
-            wheel unpack "$whl"
-
-            # Get into the unpacked directory
-            target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
-            cd "$target_dir"
-
-            # Find the dylib
-            target=$(find . -iname "libllvmlite.dylib")
-            echo "Found dylib at: $target"
-
-            echo "=== Before ==="
-            otool -L "$target"
-
             pip install delocate
-            delocate-wheel -w . "$target"
-            echo "=== After ==="
-            otool -L "$target"
+            delocate-wheel -w . "$whl"
 
-            echo "=== $target_dir contents ==="
-            find . -ls
-            echo "=== Write back to wheel ==="
-            cd ..
-            wheel pack "$target_dir"
+            echo "=== Final wheel filename ==="
 
             echo "=== Final wheel filename ==="
             ls -la ./*.whl # List wheel in dist dir
