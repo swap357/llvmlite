@@ -96,8 +96,8 @@ jobs:
           otool -L "$target"
 
           # Fix all @rpath libraries
-          install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/system/libz.1.dylib" "$target"
-          install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/system/libc++.1.dylib" "$target"
+          install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/libz.1.dylib" "$target"
+          install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/libc++.1.dylib" "$target"
 
           echo "=== AFTER ==="
           otool -L "$target"
@@ -266,4 +266,4 @@ jobs:
           cd dist
           whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
           echo "Uploading wheel: $whl"
-          anaconda -t $ANACONDA_API_TOKEN upload --force -u numba -l dev "$whl"
+          anaconda -t "$ANACONDA_API_TOKEN" upload --force -u numba -l dev "$whl"
