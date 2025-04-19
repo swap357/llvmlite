@@ -25,7 +25,7 @@ env:
 jobs:
   osx-arm64-build:
     name: osx-arm64-build
-    runs-on: macos-15
+    runs-on: macos-14
     defaults:
       run:
         shell: bash -elx {0}
@@ -104,7 +104,13 @@ jobs:
             target=$(find . -iname "libllvmlite.dylib")
             echo "Found dylib at: $target"
 
-            echo "=== otool -L $target ==="
+            echo "=== Before ==="
+            otool -L "$target"
+
+            install_name_tool -add_rpath @loader_path $target
+            install_name_tool -add_rpath @loader_path/../lib $target
+
+            echo "=== After ==="
             otool -L "$target"
 
             echo "=== $target_dir contents ==="
@@ -131,7 +137,7 @@ jobs:
   osx-arm64-validate:
     name: osx-arm64-validate
     needs: osx-arm64-build
-    runs-on: macos-15
+    runs-on: macos-14
     defaults:
       run:
         shell: bash -elx {0}
@@ -168,7 +174,7 @@ jobs:
   osx-arm64-test:
     name: osx-arm64-test
     needs: osx-arm64-build
-    runs-on: macos-15
+    runs-on: macos-14
     defaults:
       run:
         shell: bash -elx {0}
