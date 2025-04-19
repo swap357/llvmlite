@@ -107,9 +107,8 @@ jobs:
             echo "=== Before ==="
             otool -L "$target"
 
-            install_name_tool -add_rpath @loader_path $target
-            install_name_tool -add_rpath @loader_path/../lib $target
-
+            pip install delocate
+            delocate-wheel -w . "$target"
             echo "=== After ==="
             otool -L "$target"
 
