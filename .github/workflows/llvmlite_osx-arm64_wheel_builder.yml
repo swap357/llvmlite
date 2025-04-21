@@ -117,44 +117,39 @@ jobs:
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.1"
+          # Explicitly point linker to system libs to avoid @rpath for them
+          LDFLAGS: "-L/usr/lib"
         run: |
+          # Build the wheel
           arch -arm64 python -m build --verbose
 
-      - name: Fix macOS wheel library paths
+      - name: Inspect Built Wheel Dylib
         run: |
-            cd dist
-            whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
-            echo "Processing wheel: $whl"
+          # Ensure wheel tool is available (might be needed if setup changed)
+          python -m pip install wheel
 
-            # Unpack the wheel
-            wheel unpack "$whl"
+          cd dist
+          whl=$(ls -t *.whl | head -n 1) # Get the latest built wheel
+          if [ -z "$whl" ]; then echo "Error: No wheel file found"; exit 1; fi
+          echo "Inspecting wheel: $whl"
 
-            # Get into the unpacked directory
-            target_dir=$(echo "$whl" | cut -d "-" -f1 -f2)
-            cd "$target_dir"
+          # Unpack the wheel temporarily
+          mkdir -p ./unpacked_wheel
+          wheel unpack -d ./unpacked_wheel "$whl"
 
-            # Find the dylib
-            target=$(find . -iname "libllvmlite.dylib")
-            echo "Found dylib at: $target"
+          # Find the dylib within the unpacked structure
+          target=$(find ./unpacked_wheel -name "libllvmlite.dylib")
+          if [ -z "$target" ]; then echo "Error: libllvmlite.dylib not found in wheel"; exit 1; fi
+          echo "Found dylib at: $target"
 
-            echo "=== BEFORE ==="
-            otool -L "$target"
+          echo "=== Dylib Dependencies (otool -L) ==="
+          otool -L "$target"
 
-            # Fix all @rpath libraries
-            # install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/system/libz.1.dylib" "$target"
-            # install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/system/libc++.1.dylib" "$target"
+          echo "=== Dylib Load Commands (otool -l | grep LC_RPATH) ==="
+          otool -l "$target" | grep -A2 LC_RPATH || echo "No LC_RPATH commands found"
 
-            echo "=== AFTER ==="
-            otool -L "$target"
-
-            echo "=== $target_dir contents ==="
-            find . -ls
-            echo "=== Write back to wheel ==="
-            cd ..
-            wheel pack "$target_dir"
-
-            echo "=== Final wheel filename ==="
-            ls -la ./*.whl # List wheel in dist dir
+          # Clean up temporary directory
+          rm -rf ./unpacked_wheel
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
