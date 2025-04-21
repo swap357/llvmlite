@@ -83,49 +83,36 @@ jobs:
 
       - name: Inspect conda package metadata
         run: |
-          # List all installed packages with their versions
-          echo "=== All installed packages ==="
-          conda list
+            # List all installed packages with their versions
+            echo "=== All installed packages ==="
+            conda list
 
-          # Check details of specific packages
-          echo "=== libcxx package info ==="
-          conda list libcxx --verbose
+            # Search the environment's lib directory for libunwind libraries
+            echo ""
+            echo "=== Searching for libunwind in $CONDA_PREFIX/lib ==="
+            find "$CONDA_PREFIX/lib" -maxdepth 1 -name "libunwind*.dylib" -print -exec echo "  Dependencies:" \; -exec otool -L {} \; || echo "No libunwind found in $CONDA_PREFIX/lib"
 
-          echo "=== llvmdev package info ==="
-          conda list llvmdev --verbose
+            # Check dependencies of the main LLVM library from llvmdev
+            echo ""
+            echo "=== Dependencies of libLLVM from llvmdev ==="
+            LLVM_LIB_PATH=$(find "$CONDA_PREFIX/lib" -maxdepth 1 -name "libLLVM.dylib")
+            if [ -n "$LLVM_LIB_PATH" ]; then
+                echo "Found libLLVM at: $LLVM_LIB_PATH"
+                otool -L "$LLVM_LIB_PATH" | grep -i unwind || echo "libLLVM does not link against libunwind"
+            else
+                echo "libLLVM.dylib not found in $CONDA_PREFIX/lib"
+            fi
 
-          # Examine files in the libcxx package to see if it includes libunwind
-          echo "=== Files in libcxx package ==="
-          conda info --files libcxx
-
-          # Examine files in the llvmdev package
-          echo "=== Files in llvmdev package ==="
-          conda info --files llvmdev | grep -i 'unwind\|lib/' || echo "No matching files found"
-
-          # Examine system library paths and look for libunwind
-          echo "=== Search for libunwind in conda environment ==="
-          find $CONDA_PREFIX -name "libunwind*.dylib" | sort || echo "No libunwind libraries found"
-
-          # Check dynamic library dependencies (focus on LLVM libraries)
-          echo "=== Dynamic dependencies of libraries in conda ==="
-          LLVM_LIBS=$(find $CONDA_PREFIX -path "*/llvm*" -name "*.dylib" -o -name "*.so" | grep -v disabled)
-          if [ -n "$LLVM_LIBS" ]; then
-            for lib in $LLVM_LIBS; do
-              echo "Library: $lib"
-              otool -L "$lib" | grep -i unwind && echo "^^^ Contains libunwind references" || echo "No libunwind references"
-              echo "---"
-            done
-          else
-            echo "No LLVM libraries found in conda environment"
-            # Show some libraries anyway
-            SAMPLE_LIBS=$(find $CONDA_PREFIX -name "*.dylib" | head -5)
-            echo "Sample libraries in conda environment:"
-            for lib in $SAMPLE_LIBS; do
-              echo "Library: $lib"
-              otool -L "$lib" | head -5
-              echo "---"
-            done
-          fi
+            # Check dependencies of libc++ from libcxx package
+            echo ""
+            echo "=== Dependencies of libc++ from libcxx ==="
+            LIBCXX_PATH=$(find "$CONDA_PREFIX/lib" -maxdepth 1 -name "libc++.1.dylib")
+            if [ -n "$LIBCXX_PATH" ]; then
+                echo "Found libc++ at: $LIBCXX_PATH"
+                otool -L "$LIBCXX_PATH" | grep -i unwind || echo "libc++ does not link against libunwind"
+            else
+                echo "libc++.1.dylib not found in $CONDA_PREFIX/lib"
+            fi
 
       - name: Build wheel
         env:
