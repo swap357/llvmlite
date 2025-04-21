@@ -96,23 +96,36 @@ jobs:
 
           # Examine files in the libcxx package to see if it includes libunwind
           echo "=== Files in libcxx package ==="
-          conda list --explicit | grep libcxx | xargs -I{} conda info --files {}
+          conda info --files libcxx
 
           # Examine files in the llvmdev package
           echo "=== Files in llvmdev package ==="
-          conda list --explicit | grep llvmdev | xargs -I{} conda info --files {} | grep -i 'unwind\|lib/'
+          conda info --files llvmdev | grep -i 'unwind\|lib/' || echo "No matching files found"
 
           # Examine system library paths and look for libunwind
           echo "=== Search for libunwind in conda environment ==="
-          find $CONDA_PREFIX -name "libunwind*.dylib" | sort
+          find $CONDA_PREFIX -name "libunwind*.dylib" | sort || echo "No libunwind libraries found"
 
-          # Check dynamic library dependencies
+          # Check dynamic library dependencies (focus on LLVM libraries)
           echo "=== Dynamic dependencies of libraries in conda ==="
-          for lib in $(find $CONDA_PREFIX -name "*.dylib" -o -name "*.so" | grep -v disabled); do
-            echo "Library: $lib"
-            otool -L "$lib" | grep -i unwind && echo "^^^ Contains libunwind references" || true
-            echo "---"
-          done
+          LLVM_LIBS=$(find $CONDA_PREFIX -path "*/llvm*" -name "*.dylib" -o -name "*.so" | grep -v disabled)
+          if [ -n "$LLVM_LIBS" ]; then
+            for lib in $LLVM_LIBS; do
+              echo "Library: $lib"
+              otool -L "$lib" | grep -i unwind && echo "^^^ Contains libunwind references" || echo "No libunwind references"
+              echo "---"
+            done
+          else
+            echo "No LLVM libraries found in conda environment"
+            # Show some libraries anyway
+            SAMPLE_LIBS=$(find $CONDA_PREFIX -name "*.dylib" | head -5)
+            echo "Sample libraries in conda environment:"
+            for lib in $SAMPLE_LIBS; do
+              echo "Library: $lib"
+              otool -L "$lib" | head -5
+              echo "---"
+            done
+          fi
 
       - name: Build wheel
         env:
