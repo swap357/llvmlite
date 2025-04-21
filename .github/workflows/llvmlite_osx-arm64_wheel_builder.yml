@@ -196,6 +196,48 @@ jobs:
           name: llvmlite-osx-arm64-py${{ matrix.python-version }}
           path: dist
 
+      - name: Inspect Official PyPI Wheel
+        run: |
+          # Create and activate virtual environment
+          PYTHON_PATH=$(which python${{ matrix.python-version }})
+          $PYTHON_PATH -m venv .venv_pypi
+          source .venv_pypi/bin/activate
+          
+          # Install pip tools
+          python -m pip install --upgrade pip wheel
+          
+          # Download the latest llvmlite wheel from PyPI without installing it
+          mkdir -p pypi_wheel
+          cd pypi_wheel
+          
+          # Download the wheel - first find latest compatible version
+          echo "Finding latest compatible llvmlite version..."
+          python -m pip download --no-deps llvmlite
+          
+          # Unpack the wheel
+          echo "Unpacking PyPI wheel..."
+          WHL_FILE=$(ls *.whl)
+          echo "Downloaded: $WHL_FILE"
+          python -m wheel unpack "$WHL_FILE"
+          
+          # Find and examine the dylib
+          echo "Examining PyPI wheel dylib..."
+          LLVMLITE_DIR=$(ls -d llvmlite-*)
+          DYLIB_PATH=$(find "$LLVMLITE_DIR" -name "libllvmlite.dylib")
+          
+          if [ -n "$DYLIB_PATH" ]; then
+            echo "Found dylib at: $DYLIB_PATH"
+            echo "=== Library dependencies ==="
+            otool -L "$DYLIB_PATH"
+            echo "=== RPATH entries ==="
+            otool -l "$DYLIB_PATH" | grep -A2 LC_RPATH || echo "No RPATHs found"
+          else
+            echo "No libllvmlite.dylib found in the PyPI wheel"
+          fi
+          
+          # Go back to root directory
+          cd ..
+
       - name: Install and test
         run: |          
           # Create virtual environment with system Python
