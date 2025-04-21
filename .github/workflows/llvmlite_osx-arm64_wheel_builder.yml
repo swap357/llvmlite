@@ -235,33 +235,33 @@ jobs:
           PYTHON_PATH=$(which python${{ matrix.python-version }})
           $PYTHON_PATH -m venv .venv_pypi
           source .venv_pypi/bin/activate
-          
+
           # Install pip tools
           python -m pip install --upgrade pip wheel
-          
+
           # Download the latest llvmlite wheel from PyPI without installing it
           mkdir -p pypi_wheel
           cd pypi_wheel
-          
+
           # Download the wheel - first find latest compatible version
           echo "Finding latest compatible llvmlite version..."
           python -m pip download --no-deps llvmlite
-          
+
           # Unpack the wheel
           echo "Unpacking PyPI wheel..."
           WHL_FILE=$(ls *.whl)
           echo "Downloaded: $WHL_FILE"
           python -m wheel unpack "$WHL_FILE"
-          
+
           # Find and examine the dylib
           echo "Examining PyPI wheel dylib..."
           # Get the directory name without using ls -d which can cause issues with newlines
           LLVMLITE_DIR=$(find . -type d -name "llvmlite-*" -not -name "*.whl" | head -1)
           echo "Extracted directory: $LLVMLITE_DIR"
-          
+
           if [ -d "$LLVMLITE_DIR" ]; then
             DYLIB_PATH=$(find "$LLVMLITE_DIR" -name "libllvmlite.dylib")
-            
+
             if [ -n "$DYLIB_PATH" ]; then
               echo "Found dylib at: $DYLIB_PATH"
               echo "=== Library dependencies ==="
@@ -278,8 +278,20 @@ jobs:
             echo "Current directory contains:"
             ls -la
           fi
-          
-          # Go back to root directory
+
+          # Install the downloaded PyPI wheel
+          echo ""
+          echo "=== Installing PyPI wheel: $WHL_FILE ==="
+          python -m pip install "$WHL_FILE"
+
+          # Run tests on the installed PyPI wheel
+          echo ""
+          echo "=== Running tests on installed PyPI wheel ==="
+          # Change directory temporarily if tests assume specific working dir
+          # cd .. # Go back to root before running tests if needed
+          python -m llvmlite.tests || echo "Tests failed on PyPI wheel (might be expected if version mismatch)"
+
+          # Go back to root directory before finishing step
           cd ..
 
       - name: Install and test
