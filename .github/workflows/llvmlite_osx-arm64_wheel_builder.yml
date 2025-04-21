@@ -81,6 +81,39 @@ jobs:
           llvm-config --version
           llvm-config --components
 
+      - name: Inspect conda package metadata
+        run: |
+          # List all installed packages with their versions
+          echo "=== All installed packages ==="
+          conda list
+
+          # Check details of specific packages
+          echo "=== libcxx package info ==="
+          conda list libcxx --verbose
+
+          echo "=== llvmdev package info ==="
+          conda list llvmdev --verbose
+
+          # Examine files in the libcxx package to see if it includes libunwind
+          echo "=== Files in libcxx package ==="
+          conda list --explicit | grep libcxx | xargs -I{} conda info --files {}
+
+          # Examine files in the llvmdev package
+          echo "=== Files in llvmdev package ==="
+          conda list --explicit | grep llvmdev | xargs -I{} conda info --files {} | grep -i 'unwind\|lib/'
+
+          # Examine system library paths and look for libunwind
+          echo "=== Search for libunwind in conda environment ==="
+          find $CONDA_PREFIX -name "libunwind*.dylib" | sort
+
+          # Check dynamic library dependencies
+          echo "=== Dynamic dependencies of libraries in conda ==="
+          for lib in $(find $CONDA_PREFIX -name "*.dylib" -o -name "*.so" | grep -v disabled); do
+            echo "Library: $lib"
+            otool -L "$lib" | grep -i unwind && echo "^^^ Contains libunwind references" || true
+            echo "---"
+          done
+
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.1"
@@ -108,8 +141,8 @@ jobs:
             otool -L "$target"
 
             # Fix all @rpath libraries
-            install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/system/libz.1.dylib" "$target"
-            install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/system/libc++.1.dylib" "$target"
+            # install_name_tool -change "@rpath/libz.1.dylib" "/usr/lib/system/libz.1.dylib" "$target"
+            # install_name_tool -change "@rpath/libc++.1.dylib" "/usr/lib/system/libc++.1.dylib" "$target"
 
             echo "=== AFTER ==="
             otool -L "$target"
@@ -222,17 +255,28 @@ jobs:
           
           # Find and examine the dylib
           echo "Examining PyPI wheel dylib..."
-          LLVMLITE_DIR=$(ls -d llvmlite-*)
-          DYLIB_PATH=$(find "$LLVMLITE_DIR" -name "libllvmlite.dylib")
+          # Get the directory name without using ls -d which can cause issues with newlines
+          LLVMLITE_DIR=$(find . -type d -name "llvmlite-*" -not -name "*.whl" | head -1)
+          echo "Extracted directory: $LLVMLITE_DIR"
           
-          if [ -n "$DYLIB_PATH" ]; then
-            echo "Found dylib at: $DYLIB_PATH"
-            echo "=== Library dependencies ==="
-            otool -L "$DYLIB_PATH"
-            echo "=== RPATH entries ==="
-            otool -l "$DYLIB_PATH" | grep -A2 LC_RPATH || echo "No RPATHs found"
+          if [ -d "$LLVMLITE_DIR" ]; then
+            DYLIB_PATH=$(find "$LLVMLITE_DIR" -name "libllvmlite.dylib")
+            
+            if [ -n "$DYLIB_PATH" ]; then
+              echo "Found dylib at: $DYLIB_PATH"
+              echo "=== Library dependencies ==="
+              otool -L "$DYLIB_PATH"
+              echo "=== RPATH entries ==="
+              otool -l "$DYLIB_PATH" | grep -A2 LC_RPATH || echo "No RPATHs found"
+            else
+              echo "No libllvmlite.dylib found in the PyPI wheel"
+              echo "Listing all files in the directory:"
+              find "$LLVMLITE_DIR" -type f | sort
+            fi
           else
-            echo "No libllvmlite.dylib found in the PyPI wheel"
+            echo "Failed to find the extracted directory"
+            echo "Current directory contains:"
+            ls -la
           fi
           
           # Go back to root directory
