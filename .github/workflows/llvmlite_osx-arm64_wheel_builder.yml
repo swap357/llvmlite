@@ -82,25 +82,6 @@ jobs:
           fi
           conda install -vvv -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build -y
 
-          echo "=== Listing pkgs directory: $(conda info --base)/pkgs ==="
-          ls -la "$(conda info --base)/pkgs"
-
-          echo "=== Post-install libunwind check ==="
-          if [ -f "$CONDA_PREFIX/lib/libunwind.1.0.dylib" ]; then
-            echo "Found libunwind.1.0.dylib at: $CONDA_PREFIX/lib/libunwind.1.0.dylib"
-            echo "=== Dependencies ==="
-            otool -L "$CONDA_PREFIX/lib/libunwind.1.0.dylib"
-            echo "=== RPATH entries ==="
-            otool -l "$CONDA_PREFIX/lib/libunwind.1.0.dylib" | grep -A2 LC_RPATH || echo "No RPATHs found"
-          else
-            echo "No libunwind.1.0.dylib found in $CONDA_PREFIX/lib"
-          fi
-          echo "=== All libunwind files in conda lib ==="
-          find "$CONDA_PREFIX/lib" -name "libunwind*" -ls
-
-          echo "=== Inspecting llvmdev package info ==="
-          conda search llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} --info -c "$CHAN"
-
           if [ -f "$CONDA_PREFIX/lib/libunwind.1.0.dylib" ]; then
             echo "Found libunwind in conda environment, moving it temporarily"
             mkdir -p "$CONDA_PREFIX/lib/disabled"
@@ -109,63 +90,10 @@ jobs:
             find "$CONDA_PREFIX/lib" -maxdepth 1 -name "libunwind*.dylib" -type l -exec mv {} "$CONDA_PREFIX/lib/disabled/" \;
           fi
 
-          # Check LLVM configuration
-          echo "LLVM Config info:"
-          which llvm-config
-          llvm-config --version
-          llvm-config --components
-
-      - name: Inspect conda package metadata
-        run: |
-            # List all installed packages with their versions
-            echo "=== All installed packages ==="
-            conda list
-
-            # Search the environment's lib directory for libunwind libraries
-            echo ""
-            echo "=== Searching for libunwind in $CONDA_PREFIX/lib ==="
-            find "$CONDA_PREFIX/lib" -maxdepth 1 -name "libunwind*.dylib" -print -exec echo "  Dependencies:" \; -exec otool -L {} \; || echo "No libunwind found in $CONDA_PREFIX/lib"
-
-            # Check dependencies of the main LLVM library from llvmdev
-            echo ""
-            echo "=== Dependencies of LLVM libraries ==="
-            echo "Searching for LLVM libraries in $CONDA_PREFIX/lib..."
-            find "$CONDA_PREFIX/lib" -name "libLLVM*.dylib" -print -exec echo "  Dependencies:" \; -exec otool -L {} \; || echo "No LLVM libraries found"
-            
-            echo ""
-            echo "=== LLVM installation details ==="
-            echo "llvm-config location:"
-            which llvm-config
-            echo "llvm-config version:"
-            llvm-config --version
-            echo "llvm-config prefix:"
-            llvm-config --prefix
-            echo "llvm-config libdir:"
-            llvm-config --libdir
-            echo "llvm-config components (complete list):"
-            llvm-config --components | tr ' ' '\n' | sort
-            echo "llvm-config libs:"
-            llvm-config --libs
-            echo "llvm-config system-libs:"
-            llvm-config --system-libs
-            echo "llvm-config ldflags:"
-            llvm-config --ldflags
-
-            # Check dependencies of libc++ from libcxx package
-            echo ""
-            echo "=== Dependencies of libc++ from libcxx ==="
-            LIBCXX_PATH=$(find "$CONDA_PREFIX/lib" -maxdepth 1 -name "libc++.1.dylib")
-            if [ -n "$LIBCXX_PATH" ]; then
-                echo "Found libc++ at: $LIBCXX_PATH"
-                otool -L "$LIBCXX_PATH" | grep -i unwind || echo "libc++ does not link against libunwind"
-            else
-                echo "libc++.1.dylib not found in $CONDA_PREFIX/lib"
-            fi
-
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.1"
-          LDFLAGS: "-L/usr/lib"
+          LDFLAGS: "-Wl,-rpath,/usr/lib"
         run: |
           arch -arm64 python -m build --verbose
 
