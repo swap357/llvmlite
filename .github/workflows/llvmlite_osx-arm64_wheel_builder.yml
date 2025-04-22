@@ -80,7 +80,7 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
-          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build -y
+          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} -y
 
           echo "=== Post-install libunwind check ==="
           if [ -f "$CONDA_PREFIX/lib/libunwind.1.0.dylib" ]; then
@@ -96,16 +96,16 @@ jobs:
           find "$CONDA_PREFIX/lib" -name "libunwind*" -ls
 
           echo "=== Finding source package for libunwind ==="
-          echo "1. Checking conda package contents:"
-          conda list --explicit | grep -i "libunwind" || echo "No libunwind in package listings"
+          echo "1. Checking installed packages:"
+          conda list
           
-          echo "2. Checking package dependencies:"
-          for pkg in $(conda list --json | jq -r '.[].name'); do
-            echo "Checking $pkg dependencies..."
-            conda search "$pkg" --info | grep -i "dependencies.*unwind" || true
-          done
+          echo "2. Checking package cache for libunwind:"
+          find "$CONDA_PREFIX/pkgs" -name "*libunwind*" -ls || echo "No libunwind found in package cache"
           
-          echo "3. Checking system libunwind:"
+          echo "3. Checking llvmdev package specifically:"
+          conda search llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} --info -c "$CHAN" | grep -A 10 "dependencies:"
+          
+          echo "4. Checking system libunwind:"
           if [ -f "/usr/lib/libunwind.dylib" ]; then
             echo "Found system libunwind at /usr/lib/libunwind.dylib"
             otool -L /usr/lib/libunwind.dylib
