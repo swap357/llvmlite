@@ -73,6 +73,7 @@ jobs:
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "10.15"
+          LDFLAGS: "-Wl,-rpath,/usr/lib"
         run: python -m build
 
       - name: Fix macOS wheel library paths
