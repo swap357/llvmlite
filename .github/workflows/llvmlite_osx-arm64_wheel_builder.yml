@@ -131,14 +131,28 @@ jobs:
 
             # Check dependencies of the main LLVM library from llvmdev
             echo ""
-            echo "=== Dependencies of libLLVM from llvmdev ==="
-            LLVM_LIB_PATH=$(find "$CONDA_PREFIX/lib" -maxdepth 1 -name "libLLVM.dylib")
-            if [ -n "$LLVM_LIB_PATH" ]; then
-                echo "Found libLLVM at: $LLVM_LIB_PATH"
-                otool -L "$LLVM_LIB_PATH" | grep -i unwind || echo "libLLVM does not link against libunwind"
-            else
-                echo "libLLVM.dylib not found in $CONDA_PREFIX/lib"
-            fi
+            echo "=== Dependencies of LLVM libraries ==="
+            echo "Searching for LLVM libraries in $CONDA_PREFIX/lib..."
+            find "$CONDA_PREFIX/lib" -name "libLLVM*.dylib" -print -exec echo "  Dependencies:" \; -exec otool -L {} \; || echo "No LLVM libraries found"
+            
+            echo ""
+            echo "=== LLVM installation details ==="
+            echo "llvm-config location:"
+            which llvm-config
+            echo "llvm-config version:"
+            llvm-config --version
+            echo "llvm-config prefix:"
+            llvm-config --prefix
+            echo "llvm-config libdir:"
+            llvm-config --libdir
+            echo "llvm-config components (complete list):"
+            llvm-config --components | tr ' ' '\n' | sort
+            echo "llvm-config libs:"
+            llvm-config --libs
+            echo "llvm-config system-libs:"
+            llvm-config --system-libs
+            echo "llvm-config ldflags:"
+            llvm-config --ldflags
 
             # Check dependencies of libc++ from libcxx package
             echo ""
