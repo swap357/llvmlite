@@ -80,7 +80,10 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
-          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build -y
+          conda install -vvv -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build -y
+
+          echo "=== Listing pkgs directory: $(conda info --base)/pkgs ==="
+          ls -la "$(conda info --base)/pkgs"
 
           echo "=== Post-install libunwind check ==="
           if [ -f "$CONDA_PREFIX/lib/libunwind.1.0.dylib" ]; then
@@ -95,25 +98,15 @@ jobs:
           echo "=== All libunwind files in conda lib ==="
           find "$CONDA_PREFIX/lib" -name "libunwind*" -ls
 
-          echo "=== Inspecting llvmdev package ==="
-          echo "1. Finding llvmdev package directory:"
-          LLVMDEV_PATH=$(find "$(conda info --base)/pkgs" -name "llvmdev-*" -type d | head -1)
-          if [ -n "$LLVMDEV_PATH" ]; then
-            echo "Found llvmdev at: $LLVMDEV_PATH"
-            echo "2. Checking for libunwind in package:"
-            find "$LLVMDEV_PATH" -name "*libunwind*" -ls
-            echo "3. Checking package info:"
-            conda search llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} --info -c "$CHAN"
-          else
-            echo "Could not find llvmdev package directory"
-          fi
+          echo "=== Inspecting llvmdev package info ==="
+          conda search llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} --info -c "$CHAN"
 
           if [ -f "$CONDA_PREFIX/lib/libunwind.1.0.dylib" ]; then
             echo "Found libunwind in conda environment, moving it temporarily"
-            mkdir -p $CONDA_PREFIX/lib/disabled
+            mkdir -p "$CONDA_PREFIX/lib/disabled"
             mv "$CONDA_PREFIX/lib/libunwind.1.0.dylib" "$CONDA_PREFIX/lib/disabled/"
             # Also move any symbolic links
-            find "$CONDA_PREFIX/lib" -name "libunwind*.dylib" -type l -exec mv {} "$CONDA_PREFIX/lib/disabled/" \;
+            find "$CONDA_PREFIX/lib" -maxdepth 1 -name "libunwind*.dylib" -type l -exec mv {} "$CONDA_PREFIX/lib/disabled/" \;
           fi
 
           # Check LLVM configuration
@@ -168,6 +161,11 @@ jobs:
             else
                 echo "libc++.1.dylib not found in $CONDA_PREFIX/lib"
             fi
+            # check xcode version
+            xcodebuild -version
+      
+      - name: Select Xcode 15.0
+        run: sudo xcode-select -s /Applications/Xcode_15.0.app
 
       - name: Build wheel
         env:
