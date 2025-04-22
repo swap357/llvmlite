@@ -95,18 +95,23 @@ jobs:
           echo "=== All libunwind files in conda lib ==="
           find "$CONDA_PREFIX/lib" -name "libunwind*" -ls
 
-          echo "=== Checking which package provides libunwind ==="
-          echo "Listing all installed packages with their files:"
-          conda list --explicit
-          echo ""
-          echo "Checking package contents for libunwind:"
+          echo "=== Finding source package for libunwind ==="
+          echo "1. Checking conda package contents:"
+          conda list --explicit | grep -i "libunwind" || echo "No libunwind in package listings"
+          
+          echo "2. Checking package dependencies:"
           for pkg in $(conda list --json | jq -r '.[].name'); do
-            echo "Checking $pkg..."
-            conda list --json --show-channel-urls | jq -r ".[] | select(.name==\"$pkg\") | .dist_name" | while read -r dist; do
-              echo "Package $dist contents:"
-              conda list --explicit "$dist" | grep -i unwind || true
-            done
+            echo "Checking $pkg dependencies..."
+            conda search "$pkg" --info | grep -i "dependencies.*unwind" || true
           done
+          
+          echo "3. Checking system libunwind:"
+          if [ -f "/usr/lib/libunwind.dylib" ]; then
+            echo "Found system libunwind at /usr/lib/libunwind.dylib"
+            otool -L /usr/lib/libunwind.dylib
+          else
+            echo "No system libunwind found"
+          fi
 
           if [ -f "$CONDA_PREFIX/lib/libunwind.1.0.dylib" ]; then
             echo "Found libunwind in conda environment, moving it temporarily"
