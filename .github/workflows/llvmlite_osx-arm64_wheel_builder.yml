@@ -80,26 +80,11 @@ jobs:
 
       - name: Inspect wheel
         run: |
-          # unpack the wheel
-          mkdir -p wheel_contents
-          cd wheel_contents
+          mkdir -p wheel_contents && cd wheel_contents
           python -m wheel unpack ../dist/*.whl
-          ls -la
-
-          # find and inspect the dylib
           DYLIB=$(find . -iname "libllvmlite.dylib")
-          if [ -n "$DYLIB" ]; then
-            echo "Found dylib at: $DYLIB"
-            echo "=== Dependencies ==="
-            otool -L "$DYLIB"
-          else
-            echo "Error: libllvmlite.dylib not found in wheel"
-            exit 1
-          fi
-
-          # clean up
-          cd ..
-          rm -rf wheel_contents
+          [ -n "$DYLIB" ] && (echo "Found dylib at: $DYLIB" && otool -L "$DYLIB") || (echo "Error: libllvmlite.dylib not found in wheel" && exit 1)
+          cd .. && rm -rf wheel_contents
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
@@ -174,90 +159,14 @@ jobs:
           name: llvmlite-osx-arm64-py${{ matrix.python-version }}
           path: dist
 
-      - name: Inspect Official PyPI Wheel
-        run: |
-          # Create and activate virtual environment
-          PYTHON_PATH=$(which python${{ matrix.python-version }})
-          $PYTHON_PATH -m venv .venv_pypi
-          source .venv_pypi/bin/activate
-
-          # Install pip tools
-          python -m pip install --upgrade pip wheel
-
-          # Download the latest llvmlite wheel from PyPI without installing it
-          mkdir -p pypi_wheel
-          cd pypi_wheel
-
-          # Download the wheel - first find latest compatible version
-          echo "Finding latest compatible llvmlite version..."
-          python -m pip download --no-deps llvmlite
-
-          # Unpack the wheel
-          echo "Unpacking PyPI wheel..."
-          WHL_FILE=$(ls *.whl)
-          echo "Downloaded: $WHL_FILE"
-          python -m wheel unpack "$WHL_FILE"
-
-          # Find and examine the dylib
-          echo "Examining PyPI wheel dylib..."
-          # Get the directory name without using ls -d which can cause issues with newlines
-          LLVMLITE_DIR=$(find . -type d -name "llvmlite-*" -not -name "*.whl" | head -1)
-          echo "Extracted directory: $LLVMLITE_DIR"
-
-          if [ -d "$LLVMLITE_DIR" ]; then
-            DYLIB_PATH=$(find "$LLVMLITE_DIR" -name "libllvmlite.dylib")
-
-            if [ -n "$DYLIB_PATH" ]; then
-              echo "Found dylib at: $DYLIB_PATH"
-              echo "=== Library dependencies ==="
-              otool -L "$DYLIB_PATH"
-              echo "=== RPATH entries ==="
-              otool -l "$DYLIB_PATH" | grep -A2 LC_RPATH || echo "No RPATHs found"
-            else
-              echo "No libllvmlite.dylib found in the PyPI wheel"
-              echo "Listing all files in the directory:"
-              find "$LLVMLITE_DIR" -type f | sort
-            fi
-          else
-            echo "Failed to find the extracted directory"
-            echo "Current directory contains:"
-            ls -la
-          fi
-
-          # Install the downloaded PyPI wheel
-          echo ""
-          echo "=== Installing PyPI wheel: $WHL_FILE ==="
-          python -m pip install "$WHL_FILE"
-
-          # Run tests on the installed PyPI wheel
-          echo ""
-          echo "=== Running tests on installed PyPI wheel ==="
-          # Change directory temporarily if tests assume specific working dir
-          # cd .. # Go back to root before running tests if needed
-          python -m llvmlite.tests || echo "Tests failed on PyPI wheel (might be expected if version mismatch)"
-
-          # Go back to root directory before finishing step
-          cd ..
-
       - name: Install and test
         run: |
-          # Create virtual environment with system Python
           PYTHON_PATH=$(which "python${{ matrix.python-version }}")
-          "$PYTHON_PATH" -m venv .venv
-          source .venv/bin/activate
-
-          # Upgrade pip and install wheel
+          "$PYTHON_PATH" -m venv .venv && source .venv/bin/activate
           python -m pip install --upgrade pip wheel
-
-          # Install the downloaded wheel
-          cd dist
-          ls -la
-          python -m pip install -v ./*.whl
-          echo "=== Installed dylib dependencies ==="
+          cd dist && python -m pip install -v ./*.whl
           DYLIB_PATH=$(find "$(python -c "import llvmlite; print(llvmlite.__path__[0])")" -name "libllvmlite.dylib")
-          echo "Found dylib at: $DYLIB_PATH"
-          otool -L "$DYLIB_PATH"
-          # Run tests
+          echo "Found dylib at: $DYLIB_PATH" && otool -L "$DYLIB_PATH"
           python -m llvmlite.tests
 
   osx-arm64-upload:
