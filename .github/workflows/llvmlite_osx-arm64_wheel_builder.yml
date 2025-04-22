@@ -97,7 +97,7 @@ jobs:
 
           echo "=== Inspecting llvmdev package ==="
           echo "1. Finding llvmdev package directory:"
-          LLVMDEV_PATH=$(find "$CONDA_PREFIX/pkgs" -name "llvmdev-*" -type d | head -1)
+          LLVMDEV_PATH=$(find "$(conda info --base)/pkgs" -name "llvmdev-*" -type d | head -1)
           if [ -n "$LLVMDEV_PATH" ]; then
             echo "Found llvmdev at: $LLVMDEV_PATH"
             echo "2. Checking for libunwind in package:"
