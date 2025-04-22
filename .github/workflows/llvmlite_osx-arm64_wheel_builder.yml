@@ -96,12 +96,16 @@ jobs:
           find "$CONDA_PREFIX/lib" -name "libunwind*" -ls
 
           echo "=== Checking which package provides libunwind ==="
-          conda list | grep -i unwind || echo "No package with 'unwind' in name found"
-          echo "=== Checking package dependencies ==="
-          conda list --show-channel-urls | grep -v "^#" | while read -r line; do
-            pkg=$(echo "$line" | awk '{print $1}')
+          echo "Listing all installed packages with their files:"
+          conda list --explicit
+          echo ""
+          echo "Checking package contents for libunwind:"
+          for pkg in $(conda list --json | jq -r '.[].name'); do
             echo "Checking $pkg..."
-            conda search "$pkg" --info | grep -i unwind || true
+            conda list --json --show-channel-urls | jq -r ".[] | select(.name==\"$pkg\") | .dist_name" | while read -r dist; do
+              echo "Package $dist contents:"
+              conda list --explicit "$dist" | grep -i unwind || true
+            done
           done
 
           if [ -f "$CONDA_PREFIX/lib/libunwind.1.0.dylib" ]; then
