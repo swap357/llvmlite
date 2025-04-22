@@ -111,9 +111,9 @@ jobs:
           if [ -f "$CONDA_PREFIX/lib/libunwind.1.0.dylib" ]; then
             echo "Found libunwind in conda environment, moving it temporarily"
             mkdir -p $CONDA_PREFIX/lib/disabled
-            mv $CONDA_PREFIX/lib/libunwind.1.0.dylib $CONDA_PREFIX/lib/disabled/
+            mv "$CONDA_PREFIX/lib/libunwind.1.0.dylib" "$CONDA_PREFIX/lib/disabled/"
             # Also move any symbolic links
-            find $CONDA_PREFIX/lib -name "libunwind*.dylib" -type l -exec mv {} $CONDA_PREFIX/lib/disabled/ \;
+            find "$CONDA_PREFIX/lib" -name "libunwind*.dylib" -type l -exec mv {} "$CONDA_PREFIX/lib/disabled/" \;
           fi
 
           # Check LLVM configuration
@@ -222,7 +222,7 @@ jobs:
       - name: Validate wheels
         run: |
           cd dist
-          twine check *.whl
+          twine check ./*.whl
 
   osx-arm64-test:
     name: osx-arm64-test
@@ -328,7 +328,7 @@ jobs:
           ls -la
           python -m pip install -v ./*.whl
           echo "=== Installed dylib dependencies ==="
-          DYLIB_PATH=$(find $(python -c "import llvmlite; print(llvmlite.__path__[0])") -name "libllvmlite.dylib")
+          DYLIB_PATH=$(find "$(python -c "import llvmlite; print(llvmlite.__path__[0])")" -name "libllvmlite.dylib")
           echo "Found dylib at: $DYLIB_PATH"
           otool -L "$DYLIB_PATH"
           # Run tests
@@ -371,4 +371,4 @@ jobs:
           cd dist
           whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
           echo "Uploading wheel: $whl"
-          anaconda -t $ANACONDA_API_TOKEN upload --force -u numba -l dev "$whl"
+          anaconda -t "$ANACONDA_API_TOKEN" upload --force -u numba -l dev "$whl"
