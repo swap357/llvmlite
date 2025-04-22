@@ -82,14 +82,6 @@ jobs:
           fi
           conda install -vvv -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build -y
 
-          if [ -f "$CONDA_PREFIX/lib/libunwind.1.0.dylib" ]; then
-            echo "Found libunwind in conda environment, moving it temporarily"
-            mkdir -p "$CONDA_PREFIX/lib/disabled"
-            mv "$CONDA_PREFIX/lib/libunwind.1.0.dylib" "$CONDA_PREFIX/lib/disabled/"
-            # Also move any symbolic links
-            find "$CONDA_PREFIX/lib" -maxdepth 1 -name "libunwind*.dylib" -type l -exec mv {} "$CONDA_PREFIX/lib/disabled/" \;
-          fi
-
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.1"
