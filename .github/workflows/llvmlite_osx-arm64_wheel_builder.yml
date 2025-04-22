@@ -95,6 +95,15 @@ jobs:
           echo "=== All libunwind files in conda lib ==="
           find "$CONDA_PREFIX/lib" -name "libunwind*" -ls
 
+          echo "=== Checking which package provides libunwind ==="
+          conda list | grep -i unwind || echo "No package with 'unwind' in name found"
+          echo "=== Checking package dependencies ==="
+          conda list --show-channel-urls | grep -v "^#" | while read -r line; do
+            pkg=$(echo "$line" | awk '{print $1}')
+            echo "Checking $pkg..."
+            conda search "$pkg" --info | grep -i unwind || true
+          done
+
           if [ -f "$CONDA_PREFIX/lib/libunwind.1.0.dylib" ]; then
             echo "Found libunwind in conda environment, moving it temporarily"
             mkdir -p $CONDA_PREFIX/lib/disabled
