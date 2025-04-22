@@ -65,11 +65,11 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
-          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build -y
+          conda install -c "$CHAN" llvmdev="${{ env.FALLBACK_LLVMDEV_VERSION }}" python-build -y
 
           # Hide libunwind to prevent it from being linked against during build
-          mkdir -p $CONDA_PREFIX/lib/hide_unwind
-          mv $CONDA_PREFIX/lib/libunwind*.dylib $CONDA_PREFIX/lib/hide_unwind/ 2>/dev/null || true
+          mkdir -p "$CONDA_PREFIX/lib/hide_unwind"
+          mv "$CONDA_PREFIX/lib/libunwind"*.dylib "$CONDA_PREFIX/lib/hide_unwind/" 2>/dev/null || true
 
       - name: Build wheel
         env:
@@ -240,10 +240,10 @@ jobs:
           cd ..
 
       - name: Install and test
-        run: |          
+        run: |
           # Create virtual environment with system Python
-          PYTHON_PATH=$(which python${{ matrix.python-version }})
-          $PYTHON_PATH -m venv .venv
+          PYTHON_PATH=$(which "python${{ matrix.python-version }}")
+          "$PYTHON_PATH" -m venv .venv
           source .venv/bin/activate
 
           # Upgrade pip and install wheel
