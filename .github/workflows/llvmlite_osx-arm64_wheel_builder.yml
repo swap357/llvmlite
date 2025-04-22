@@ -65,18 +65,17 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
-          conda install -vvv -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build -y
+          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build -y
+
+          # Hide libunwind to prevent it from being linked against during build
+          mkdir -p $CONDA_PREFIX/lib/hide_unwind
+          mv $CONDA_PREFIX/lib/libunwind*.dylib $CONDA_PREFIX/lib/hide_unwind/ 2>/dev/null || true
 
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.1"
           LDFLAGS: "-v -Wl,-rpath,/usr/lib"
-          CFLAGS: "-v"
-          CXXFLAGS: "-v"
         run: |
-          echo "LDFLAGS=$LDFLAGS"
-          echo "CFLAGS=$CFLAGS"
-          echo "CXXFLAGS=$CXXFLAGS"
           arch -arm64 python -m build --verbose --config-setting="--global-option=build_ext" --config-setting="--global-option=-v"
 
       - name: Inspect wheel
@@ -86,7 +85,7 @@ jobs:
           cd wheel_contents
           python -m wheel unpack ../dist/*.whl
           ls -la
-          
+
           # find and inspect the dylib
           DYLIB=$(find . -iname "libllvmlite.dylib")
           if [ -n "$DYLIB" ]; then
