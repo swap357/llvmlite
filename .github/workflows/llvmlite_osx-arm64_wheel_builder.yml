@@ -98,10 +98,20 @@ jobs:
           cd wheel_contents
           python -m wheel unpack ../dist/*.whl
           ls -la
-          # inspect the dylib
-          otool -L llvmlite.libs/libllvmlite.dylib
-          # inspect the rpath
-          otool -l llvmlite.libs/libllvmlite.dylib | grep -A2 LC_RPATH
+          
+          # find and inspect the dylib
+          DYLIB=$(find . -iname "libllvmlite.dylib")
+          if [ -n "$DYLIB" ]; then
+            echo "Found dylib at: $DYLIB"
+            echo "=== Dependencies ==="
+            otool -L "$DYLIB"
+            echo "=== RPATH entries ==="
+            otool -l "$DYLIB" | grep -A2 LC_RPATH
+          else
+            echo "Error: libllvmlite.dylib not found in wheel"
+            exit 1
+          fi
+
           # clean up
           cd ..
           rm -rf wheel_contents
