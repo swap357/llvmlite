@@ -161,15 +161,11 @@ jobs:
             else
                 echo "libc++.1.dylib not found in $CONDA_PREFIX/lib"
             fi
-            # check xcode version
-            xcodebuild -version
-      
-      - name: Select Xcode 15.0
-        run: sudo xcode-select -s /Applications/Xcode_15.0.app
 
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.1"
+          LDFLAGS: "-L/usr/lib"
         run: |
           arch -arm64 python -m build --verbose
 
