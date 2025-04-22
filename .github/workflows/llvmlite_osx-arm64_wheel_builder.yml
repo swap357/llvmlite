@@ -83,7 +83,12 @@ jobs:
           mkdir -p wheel_contents && cd wheel_contents
           python -m wheel unpack ../dist/*.whl
           DYLIB=$(find . -iname "libllvmlite.dylib")
-          [ -n "$DYLIB" ] && (echo "Found dylib at: $DYLIB" && otool -L "$DYLIB") || (echo "Error: libllvmlite.dylib not found in wheel" && exit 1)
+          if [ -n "$DYLIB" ]; then
+            echo "Found dylib at: $DYLIB" && otool -L "$DYLIB"
+          else
+            echo "Error: libllvmlite.dylib not found in wheel"
+            exit 1
+          fi
           cd .. && rm -rf wheel_contents
 
       - name: Upload wheel
