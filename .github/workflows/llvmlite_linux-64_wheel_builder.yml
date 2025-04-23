@@ -65,16 +65,25 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
-          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} python-build
+          # Install llvmdev first to make sure it doesn't get downgraded
+          # by conda dependency solver when installing other packages.
+          conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} -y
+          conda install -c defaults python-build auditwheel -y
 
       - name: Build wheel
-        run: python -m build
+        run: python -m build --wheel
+
+      - name: Repair wheel with auditwheel
+        run: |
+          WHEEL_FILE=$(ls dist/*.whl | head -n 1)
+          auditwheel repair "$WHEEL_FILE" --wheel-dir wheelhouse/
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
           name: llvmlite-linux-64-py${{ matrix.python-version }}
-          path: dist/*.whl
+          # Upload the repaired wheel from wheelhouse
+          path: wheelhouse/*.whl
           compression-level: 0
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: error
