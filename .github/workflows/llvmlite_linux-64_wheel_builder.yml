@@ -68,7 +68,8 @@ jobs:
           # Install llvmdev first to make sure it doesn't get downgraded
           # by conda dependency solver when installing other packages.
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} -y
-          conda install -c defaults python-build auditwheel -y
+          conda install -c defaults python-build -y
+          pip install auditwheel
 
       - name: Build wheel
         run: python -m build --wheel
