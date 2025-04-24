@@ -86,14 +86,11 @@ jobs:
           # The script creates output in a specific location based on architecture and Python version
           WHEEL_DIR="docker_output/dist_aarch64_${{ env.PYTHON_PATH }}/wheelhouse"
 
-          # List wheels to debug
           echo "Available wheels in $WHEEL_DIR:"
           find "$WHEEL_DIR" -type f -name "*.whl" -print
 
-          # Copy wheels to upload directory
           cp "$WHEEL_DIR"/*.whl wheelhouse/ || echo "Warning: No matching wheel found!"
 
-          # Verify we have the correct wheel
           echo "--- Final wheel for upload: ---"
           find wheelhouse -type f -name "*.whl" -print
 
