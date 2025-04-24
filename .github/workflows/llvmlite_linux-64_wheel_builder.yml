@@ -54,7 +54,7 @@ jobs:
         with:
           auto-update-conda: true
           auto-activate-base: true
-          activate-environment: ""
+          activate-environment: true
 
       - name: Map Python version
         run: |
@@ -126,7 +126,7 @@ jobs:
           python-version: ${{ env.VALIDATION_PYTHON_VERSION }}
           auto-update-conda: true
           auto-activate-base: true
-          activate-environment: ""
+          activate-environment: true
 
       - name: Install validation dependencies
         run: conda install -c defaults wheel twine keyring rfc3986
@@ -215,7 +215,7 @@ jobs:
           python-version: ${{ env.VALIDATION_PYTHON_VERSION }}
           auto-update-conda: true
           auto-activate-base: true
-          activate-environment: ""
+          activate-environment: true
 
       - name: Install anaconda-client
         run: conda install -c anaconda anaconda-client
