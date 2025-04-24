@@ -25,22 +25,12 @@ jobs:
   linux-64-build:
     name: linux-64-build-py${{ matrix.python-version }}
     runs-on: ubuntu-latest
-    container: quay.io/pypa/manylinux2014_x86_64
     defaults:
       run:
         shell: bash -elx {0}
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
-        include:
-          - python-version: "3.10"
-            py_path: "cp310-cp310"
-          - python-version: "3.11"
-            py_path: "cp311-cp311"
-          - python-version: "3.12"
-            py_path: "cp312-cp312"
-          - python-version: "3.13"
-            py_path: "cp313-cp313"
       fail-fast: false
 
     steps:
@@ -59,66 +49,94 @@ jobs:
           repository: ${{ github.repository }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Python paths
-        run: |
-          # Set Python path from manylinux
-          PY_VER_MANYLINUX=${{ matrix.py_path }}
-          export PATH=/opt/python/$PY_VER_MANYLINUX/bin:$PATH
-          echo "PATH=$PATH" >> $GITHUB_ENV
-          echo "Using python: $(which python)"
-
       - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          auto-activate-base: true
+          activate-environment: ""
+
+      - name: Map Python version
         run: |
+          # Map Python version to manylinux path
+          case "${{ matrix.python-version }}" in
+            "3.10") echo "PYTHON_PATH=cp310-cp310" >> $GITHUB_ENV ;;
+            "3.11") echo "PYTHON_PATH=cp311-cp311" >> $GITHUB_ENV ;;
+            "3.12") echo "PYTHON_PATH=cp312-cp312" >> $GITHUB_ENV ;;
+            "3.13") echo "PYTHON_PATH=cp313-cp313" >> $GITHUB_ENV ;;
+            *) echo "Invalid Python version" && exit 1 ;;
+          esac
+
+      - name: Create build script
+        run: |
+          # Create build script to run inside container
+          cat > build_wheel.sh << 'EOF'
+          #!/bin/bash
+          set -ex
+          
+          # Get arguments
+          PY_PATH=$1
+          LLVMDEV_VERSION=$2
+          
+          # Set Python path
+          export PATH=/opt/python/${PY_PATH}/bin:$PATH
+          echo "Using Python: $(which python)"
+          
+          # Install Miniconda for llvmdev
           cd /tmp
           curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh
           bash miniconda.sh -b -p /opt/conda
+          export PATH="/opt/conda/bin:$PATH"
+          
+          # Setup conda
           source /opt/conda/etc/profile.d/conda.sh
-          echo "CONDA_PREFIX=/opt/conda" >> $GITHUB_ENV
-          echo "PATH=/opt/conda/bin:$PATH" >> $GITHUB_ENV
           conda config --set always_yes yes
-
-      - name: Install dependencies
-        run: |
+          
           # Create conda environment
-          source /opt/conda/etc/profile.d/conda.sh
           conda create -y -n llvmbase
           conda activate llvmbase
           
           # Install llvmdev
+          cd /io
           if [ -d "llvmdev_conda_packages" ]; then
-              CHAN="file://$(pwd)/llvmdev_conda_packages"
-              echo "Using local llvmdev artifact channel: $CHAN"
-              conda install -y -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} --no-deps
+              CHAN="file:///io/llvmdev_conda_packages"
+              echo "Using local llvmdev artifact"
+              conda install -y -c "$CHAN" llvmdev=${LLVMDEV_VERSION} --no-deps
           else
-              # Install llvmdev from platform-specific channel
+              echo "Using remote llvmdev"
               conda install -y -c numba/label/manylinux_2_17 llvmdev --no-deps
           fi
           
-          # Install setuptools (needed for Python 3.12+)
+          # Install setuptools
           pip install setuptools
-
-      - name: Build wheel
-        run: |
-          source /opt/conda/etc/profile.d/conda.sh
-          conda activate llvmbase
-          
-          # Clean up
-          python setup.py clean
           
           # Build wheel
+          python setup.py clean
           python setup.py bdist_wheel
-
-      - name: Repair wheel with auditwheel
-        run: |
+          
           # Repair wheel with auditwheel
           cd dist
           mkdir -p wheelhouse
           auditwheel repair *.whl --wheel-dir wheelhouse
           ls -la wheelhouse/
           
-          # Move wheels to repo wheelhouse for artifact upload
-          mkdir -p ../wheelhouse
-          cp wheelhouse/*.whl ../wheelhouse/
+          # Done
+          echo "Build complete!"
+          EOF
+          
+          chmod +x build_wheel.sh
+
+      - name: Build wheel in manylinux container
+        run: |
+          # Run the build script in manylinux container
+          docker run --rm \
+            -v $(pwd):/io \
+            quay.io/pypa/manylinux2014_x86_64 \
+            /io/build_wheel.sh ${{ env.PYTHON_PATH }} ${{ env.FALLBACK_LLVMDEV_VERSION }}
+          
+          # Create wheelhouse directory for artifact upload
+          mkdir -p wheelhouse
+          cp dist/wheelhouse/*.whl wheelhouse/
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
