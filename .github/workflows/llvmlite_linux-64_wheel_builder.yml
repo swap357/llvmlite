@@ -66,83 +66,31 @@ jobs:
             "3.13") echo "PYTHON_PATH=cp313-cp313" >> $GITHUB_ENV ;;
             *) echo "Invalid Python version" && exit 1 ;;
           esac
-
-      - name: Create build script
-        run: |
-          # Create build script to run inside container
-          cat > build_wheel.sh << 'EOF'
-          #!/bin/bash
-          set -ex
           
-          # Get arguments
-          PY_PATH=$1
-          LLVMDEV_VERSION=$2
-          
-          # Set Python path
-          export PATH=/opt/python/${PY_PATH}/bin:$PATH
-          echo "Using Python: $(which python)"
-          
-          # Install Miniconda for llvmdev
-          cd /tmp
-          curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh
-          bash miniconda.sh -b -p /opt/conda
-          export PATH="/opt/conda/bin:$PATH"
-          
-          # Setup conda
-          source /opt/conda/etc/profile.d/conda.sh
-          conda config --set always_yes yes
-          
-          # Create conda environment
-          conda create -y -n llvmbase
-          conda activate llvmbase
-          
-          # Install llvmdev
-          cd /io
-          if [ -d "llvmdev_conda_packages" ]; then
-              CHAN="file:///io/llvmdev_conda_packages"
-              echo "Using local llvmdev artifact"
-              conda install -y -c "$CHAN" llvmdev=${LLVMDEV_VERSION} --no-deps
-          else
-              echo "Using remote llvmdev"
-              conda install -y -c numba/label/manylinux_2_17 llvmdev --no-deps
-          fi
-          
-          # Install setuptools
-          pip install setuptools
-          
-          # Build wheel
-          python setup.py clean
-          python setup.py bdist_wheel
-          
-          # Repair wheel with auditwheel
-          cd dist
-          mkdir -p wheelhouse
-          auditwheel repair *.whl --wheel-dir wheelhouse
-          ls -la wheelhouse/
-          
-          # Done
-          echo "Build complete!"
-          EOF
-          
-          chmod +x build_wheel.sh
+          # Define Miniconda installer URL
+          echo "MINICONDA_FILE=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" >> $GITHUB_ENV
 
       - name: Build wheel in manylinux container
         run: |
-          # Run the build script in manylinux container
+          # Run the build script in manylinux container using the existing script
           docker run --rm \
-            -v $(pwd):/io \
+            -v $(pwd):/root/llvmlite \
             quay.io/pypa/manylinux2014_x86_64 \
-            /io/build_wheel.sh ${{ env.PYTHON_PATH }} ${{ env.FALLBACK_LLVMDEV_VERSION }}
+            /root/llvmlite/buildscripts/manylinux/build_llvmlite.sh \
+            ${{ env.MINICONDA_FILE }} ${{ env.PYTHON_PATH }}
           
           # Create wheelhouse directory for artifact upload
           mkdir -p wheelhouse
           
-          # Filter for only this Python version's wheel
-          PY_TAG="${{ env.PYTHON_PATH }}"
+          # The script creates output in a specific location based on architecture and Python version
+          WHEEL_DIR="docker_output/dist_x86_64_${{ env.PYTHON_PATH }}/wheelhouse"
+          
           # List wheels to debug
-          ls -la dist/wheelhouse/
-          # Only copy matching wheel for this Python version
-          cp dist/wheelhouse/*${PY_TAG}*.whl wheelhouse/
+          echo "Available wheels in $WHEEL_DIR:"
+          ls -la $WHEEL_DIR/
+          
+          # Copy wheels to upload directory
+          cp $WHEEL_DIR/*.whl wheelhouse/ || echo "Warning: No matching wheel found!"
           
           # Verify we have the correct wheel
           echo "--- Final wheel for upload: ---"
