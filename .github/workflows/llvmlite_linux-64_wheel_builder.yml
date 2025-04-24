@@ -66,7 +66,6 @@ jobs:
             "3.13") echo "PYTHON_PATH=cp313-cp313" >> $GITHUB_ENV ;;
             *) echo "Invalid Python version" && exit 1 ;;
           esac
-          
           # Define Miniconda installer URL
           echo "MINICONDA_FILE=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" >> $GITHUB_ENV
 
@@ -78,20 +77,20 @@ jobs:
             quay.io/pypa/manylinux2014_x86_64 \
             /root/llvmlite/buildscripts/manylinux/build_llvmlite.sh \
             ${{ env.MINICONDA_FILE }} ${{ env.PYTHON_PATH }}
-          
+
           # Create wheelhouse directory for artifact upload
           mkdir -p wheelhouse
-          
+
           # The script creates output in a specific location based on architecture and Python version
           WHEEL_DIR="docker_output/dist_x86_64_${{ env.PYTHON_PATH }}/wheelhouse"
-          
+
           # List wheels to debug
           echo "Available wheels in $WHEEL_DIR:"
           ls -la $WHEEL_DIR/
-          
+
           # Copy wheels to upload directory
           cp $WHEEL_DIR/*.whl wheelhouse/ || echo "Warning: No matching wheel found!"
-          
+
           # Verify we have the correct wheel
           echo "--- Final wheel for upload: ---"
           ls -la wheelhouse/
@@ -174,25 +173,25 @@ jobs:
         run: |
           # Get the Python executable path
           PYTHON_PATH=$(which python)
-          
+
           # Upgrade pip and install wheel
           $PYTHON_PATH -m pip install --upgrade pip wheel
-          
+
           # Install wheel
           cd dist
           # Look for wheel matching this python version
           PY_TAG=$(python -c "import sys; print(f'cp{sys.version_info.major}{sys.version_info.minor}')")
           whl=$(ls -t ./*${PY_TAG}*.whl | head -n 1)
-          
+
           if [ -z "$whl" ]; then
             echo "ERROR: No matching wheel found for Python ${{ matrix.python-version }} (tag: $PY_TAG)"
             ls -la
             exit 1
           fi
-          
+
           echo "Using wheel: $whl"
           $PYTHON_PATH -m pip install -v "$whl"
-          
+
           # Run tests
           $PYTHON_PATH -m llvmlite.tests
 
@@ -234,12 +233,12 @@ jobs:
           # Find appropriate wheel for Python version
           PY_TAG="cp$(echo "${{ matrix.python-version }}" | tr -d '.')"
           whl=$(ls -t ./*${PY_TAG}*.whl | head -n 1)
-          
+
           if [ -z "$whl" ]; then
             echo "ERROR: No matching wheel found for Python ${{ matrix.python-version }}"
             ls -la
             exit 1
           fi
-          
+
           echo "Uploading wheel: $whl"
           anaconda -t $ANACONDA_API_TOKEN upload --force -u numba -l dev "$whl"
