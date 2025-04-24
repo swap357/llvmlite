@@ -219,16 +219,16 @@ jobs:
           PYTHON_PATH=$(which python${{ matrix.python-version }})
 
           # Upgrade pip and install wheel
-          $PYTHON_PATH -m pip install --upgrade pip wheel
+          "${PYTHON_PATH}" -m pip install --upgrade pip wheel
 
           # Install wheel and run tests
           cd dist
           whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
           echo "Using wheel: $whl"
-          $PYTHON_PATH -m pip install -v "$whl"
+          "${PYTHON_PATH}" -m pip install -v "$whl"
 
           # Run tests
-          $PYTHON_PATH -m llvmlite.tests
+          "${PYTHON_PATH}" -m llvmlite.tests
 
   osx-64-upload:
     name: osx-64-upload
@@ -267,4 +267,4 @@ jobs:
           cd dist
           whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
           echo "Uploading wheel: $whl"
-          anaconda -t $ANACONDA_API_TOKEN upload --force -u numba -l dev "$whl"
+          anaconda -t "$ANACONDA_API_TOKEN" upload --force -u numba -l dev "$whl"
