@@ -2,6 +2,9 @@
 
 set -x
 
+# Store env var that might be passed from the CI/calling environment
+CONDA_BUILD_SYSROOT_FROM_ENV="${CONDA_BUILD_SYSROOT}"
+
 if [[ $(uname) == Darwin ]]; then
   if [[ $build_platform == osx-arm64 ]]; then
       CLANG_PKG_SELECTOR=clangxx_osx-arm64=14
@@ -12,9 +15,7 @@ if [[ $(uname) == Darwin ]]; then
   export PATH=${SRC_DIR}/bootstrap/bin:${PATH}
   CONDA_PREFIX=${SRC_DIR}/bootstrap \
     . ${SRC_DIR}/bootstrap/etc/conda/activate.d/*
-  echo "MACOSX_DEPLOYMENT_TARGET: $MACOSX_DEPLOYMENT_TARGET"
-  export CONDA_BUILD_SYSROOT=${CONDA_BUILD_SYSROOT:-/opt/MacOSX${MACOSX_DEPLOYMENT_TARGET}.sdk}
-  echo "CONDA_BUILD_SYSROOT: $CONDA_BUILD_SYSROOT"
+  export CONDA_BUILD_SYSROOT=${CONDA_BUILD_SYSROOT_FROM_ENV:-/opt/MacOSX${MACOSX_DEPLOYMENT_TARGET}.sdk}
   export CXXFLAGS=${CFLAGS}" -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}"
   export CFLAGS=${CFLAGS}" -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}"
   SYSROOT_DIR=${CONDA_BUILD_SYSROOT}
