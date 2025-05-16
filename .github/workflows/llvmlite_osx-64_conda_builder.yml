@@ -61,6 +61,7 @@ jobs:
       - name: Build llvmlite conda package
         env:
           MACOSX_DEPLOYMENT_TARGET: "10.10"
+          CONDA_BUILD_SYSROOT: "/opt/MacOSX10.10.sdk"
         run: |
           if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
               LLVMDEV_CHANNEL="file://$PWD/llvmdev_conda_packages"
