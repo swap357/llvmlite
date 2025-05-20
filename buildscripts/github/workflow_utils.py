@@ -17,7 +17,7 @@ CONFIG = {
     # Workflow mappings for conda builds
     "conda_workflows": {
         "linux-64": "llvmlite_linux-64_conda_builder.yml",
-        "linux-aarch64": "llvmlite_linux-aarch64_conda_builder.yml",
+        "linux-arm64": "llvmlite_linux-arm64_conda_builder.yml",
         "osx-64": "llvmlite_osx-64_conda_builder.yml",
         "osx-arm64": "llvmlite_osx-arm64_conda_builder.yml",
         "win-64": "llvmlite_win-64_conda_builder.yml"
@@ -26,7 +26,7 @@ CONFIG = {
     # Workflow mappings for wheel builds
     "wheel_workflows": {
         "linux-64": "llvmlite_linux-64_wheel_builder.yml",
-        "linux-aarch64": "llvmlite_linux-aarch64_wheel_builder.yml",
+        "linux-arm64": "llvmlite_linux-arm64_wheel_builder.yml",
         "osx-64": "llvmlite_osx-64_wheel_builder.yml",
         "osx-arm64": "llvmlite_osx-arm64_wheel_builder.yml",
         "win-64": "llvmlite_win-64_wheel_builder.yml"
