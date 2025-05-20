@@ -37,172 +37,155 @@ on:
         default: false
 
 jobs:
-  prepare_matrix:
+  matrix_setup:
     runs-on: ubuntu-latest
     outputs:
-      platform_matrix: ${{ steps.set-matrix.outputs.platform_matrix }}
-      python_matrix: ${{ steps.set-matrix.outputs.python_matrix }}
-    steps:
-      - name: Set up matrices
-        id: set-matrix
-        run: |
-          # Set platform matrix based on input
-          case "${{ inputs.build_platforms }}" in
-            "all")
-              echo "platform_matrix=linux-64,linux-aarch64,osx-64,osx-arm64,win-64" >> $GITHUB_OUTPUT
-              ;;
-            "linux")
-              echo "platform_matrix=linux-64,linux-aarch64" >> $GITHUB_OUTPUT
-              ;;
-            "osx")
-              echo "platform_matrix=osx-64,osx-arm64" >> $GITHUB_OUTPUT
-              ;;
-            "win")
-              echo "platform_matrix=win-64" >> $GITHUB_OUTPUT
-              ;;
-            "arm")
-              echo "platform_matrix=linux-aarch64,osx-arm64" >> $GITHUB_OUTPUT
-              ;;
-          esac
-
-          # Set Python versions matrix
-          if [ "${{ inputs.python_versions }}" == "all" ]; then
-            echo "python_matrix=3.10,3.11,3.12,3.13" >> $GITHUB_OUTPUT
-          else
-            echo "python_matrix=${{ inputs.python_versions }}" >> $GITHUB_OUTPUT
-          fi
-
-  trigger_conda_builds:
-    needs: prepare_matrix
-    if: inputs.build_type == 'all' || inputs.build_type == 'conda'
-    strategy:
-      matrix:
-        platform: ${{ fromJson(format('[{0}]', needs.prepare_matrix.outputs.platform_matrix)) }}
-      fail-fast: false
-    runs-on: ubuntu-latest
+      platforms: ${{ steps.set-matrix.outputs.platforms }}
+      python_versions: ${{ steps.set-matrix.outputs.python_versions }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - id: set-matrix
+        name: Determine build matrix
+        run: |
+          # Run the consolidated utility script to get the build matrix
+          MATRIX_JSON=$(python buildscripts/github/workflow_utils.py get-build-matrix "${{ inputs.build_platforms }}" "${{ inputs.python_versions }}")
+
+          # Extract and set the outputs
+          PLATFORMS=$(echo "$MATRIX_JSON" | python -c "import json, sys; print(json.loads(sys.stdin.read())['platforms'])" | python -c "import json, sys; print(json.dumps(json.loads(sys.stdin.read())))")
+          PY_VERSIONS=$(echo "$MATRIX_JSON" | python -c "import json, sys; print(json.loads(sys.stdin.read())['python_versions'])" | python -c "import json, sys; print(json.dumps(json.loads(sys.stdin.read())))")
+
+          echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
+          echo "python_versions=$PY_VERSIONS" >> $GITHUB_OUTPUT
+
+  trigger_conda_builds:
+    needs: matrix_setup
+    if: inputs.build_type == 'all' || inputs.build_type == 'conda'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: ${{ fromJson(needs.matrix_setup.outputs.platforms) }}
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get workflow filename from mappings
+        id: get-workflow
+        run: |
+          # Run the consolidated utility script to get the workflow filename
+          WORKFLOW=$(python buildscripts/github/workflow_utils.py get-workflow-filename "${{ matrix.platform }}" "conda")
+
+          # Check if we got an error message
+          if [[ $WORKFLOW == ERROR* ]]; then
+            echo "::error::$WORKFLOW"
+            exit 1
+          fi
+
+          echo "workflow_file=$WORKFLOW" >> $GITHUB_OUTPUT
 
       - name: Trigger platform-specific conda workflow
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const platform = '${{ matrix.platform }}';
-            let workflowFileName;
+            const workflowFilename = '${{ steps.get-workflow.outputs.workflow_file }}';
+            console.log(`Triggering workflow: ${workflowFilename}`);
 
-            // Map platform to workflow file
-            if (platform === 'linux-64') {
-              workflowFileName = 'llvmlite_linux-64_conda_builder.yml';
-            } else if (platform === 'linux-aarch64') {
-              workflowFileName = 'llvmlite_linux-aarch64_conda_builder.yml';
-            } else if (platform === 'osx-64') {
-              workflowFileName = 'llvmlite_osx-64_conda_builder.yml';
-            } else if (platform === 'osx-arm64') {
-              workflowFileName = 'llvmlite_osx-arm64_conda_builder.yml';
-            } else if (platform === 'win-64') {
-              workflowFileName = 'llvmlite_win-64_conda_builder.yml';
-            } else {
-              core.setFailed(`Unsupported platform: ${platform}`);
-              return;
-            }
-
-            const pythonVersions = '${{ needs.prepare_matrix.outputs.python_matrix }}'.split(',');
-            console.log(`Triggering ${workflowFileName} for Python versions: ${pythonVersions.join(', ')}`);
-
-            // Get workflow ID
+            // Get the workflow ID from the filename
             const { data: workflows } = await github.rest.actions.listRepoWorkflows({
               owner: context.repo.owner,
               repo: context.repo.repo
             });
 
-            const workflow = workflows.workflows.find(w => w.path === `.github/workflows/${workflowFileName}`);
+            const workflow = workflows.workflows.find(w => w.path === `.github/workflows/${workflowFilename}`);
             if (!workflow) {
-              core.setFailed(`Workflow not found: ${workflowFileName}`);
+              core.setFailed(`Workflow not found: ${workflowFilename}`);
               return;
             }
 
-            // Trigger workflow
+            // Create inputs object
+            const inputs = {
+              llvmdev_run_id: '${{ inputs.llvmdev_run_id }}'
+            };
+
+            // Trigger the workflow
             try {
               const response = await github.rest.actions.createWorkflowDispatch({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 workflow_id: workflow.id,
                 ref: context.ref,
-                inputs: {
-                  llvmdev_run_id: '${{ inputs.llvmdev_run_id }}'
-                }
+                inputs: inputs
               });
-              console.log(`Triggered workflow ${workflowFileName}`, response);
+              console.log(`Successfully triggered workflow: ${workflowFilename}`);
             } catch (error) {
               core.setFailed(`Failed to trigger workflow: ${error.message}`);
             }
 
   trigger_wheel_builds:
-    needs: prepare_matrix
+    needs: matrix_setup
     if: inputs.build_type == 'all' || inputs.build_type == 'wheel'
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        platform: ${{ fromJson(format('[{0}]', needs.prepare_matrix.outputs.platform_matrix)) }}
+        platform: ${{ fromJson(needs.matrix_setup.outputs.platforms) }}
       fail-fast: false
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Get workflow filename from mappings
+        id: get-workflow
+        run: |
+          # Run the consolidated utility script to get the workflow filename
+          WORKFLOW=$(python buildscripts/github/workflow_utils.py get-workflow-filename "${{ matrix.platform }}" "wheel")
+
+          # Check if we got an error message
+          if [[ $WORKFLOW == ERROR* ]]; then
+            echo "::error::$WORKFLOW"
+            exit 1
+          fi
+
+          echo "workflow_file=$WORKFLOW" >> $GITHUB_OUTPUT
 
       - name: Trigger platform-specific wheel workflow
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const platform = '${{ matrix.platform }}';
-            let workflowFileName;
+            const workflowFilename = '${{ steps.get-workflow.outputs.workflow_file }}';
+            console.log(`Triggering workflow: ${workflowFilename}`);
 
-            // Map platform to workflow file
-            if (platform === 'linux-64') {
-              workflowFileName = 'llvmlite_linux-64_wheel_builder.yml';
-            } else if (platform === 'linux-aarch64') {
-              workflowFileName = 'llvmlite_linux-arm64_wheel_builder.yml';
-            } else if (platform === 'osx-64') {
-              workflowFileName = 'llvmlite_osx-64_wheel_builder.yml';
-            } else if (platform === 'osx-arm64') {
-              workflowFileName = 'llvmlite_osx-arm64_wheel_builder.yml';
-            } else if (platform === 'win-64') {
-              workflowFileName = 'llvmlite_win-64_wheel_builder.yml';
-            } else {
-              core.setFailed(`Unsupported platform: ${platform}`);
-              return;
-            }
-
-            const pythonVersions = '${{ needs.prepare_matrix.outputs.python_matrix }}'.split(',');
-            console.log(`Triggering ${workflowFileName} for Python versions: ${pythonVersions.join(', ')}`);
-
-            // Get workflow ID
+            // Get the workflow ID from the filename
             const { data: workflows } = await github.rest.actions.listRepoWorkflows({
               owner: context.repo.owner,
               repo: context.repo.repo
             });
 
-            const workflow = workflows.workflows.find(w => w.path === `.github/workflows/${workflowFileName}`);
+            const workflow = workflows.workflows.find(w => w.path === `.github/workflows/${workflowFilename}`);
             if (!workflow) {
-              core.setFailed(`Workflow not found: ${workflowFileName}`);
+              core.setFailed(`Workflow not found: ${workflowFilename}`);
               return;
             }
 
-            // Trigger workflow
+            // Create inputs object
+            const inputs = {
+              llvmdev_run_id: '${{ inputs.llvmdev_run_id }}',
+              upload_wheels: ${{ inputs.upload_wheels }}
+            };
+
+            // Trigger the workflow
             try {
               const response = await github.rest.actions.createWorkflowDispatch({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 workflow_id: workflow.id,
                 ref: context.ref,
-                inputs: {
-                  llvmdev_run_id: '${{ inputs.llvmdev_run_id }}',
-                  upload_wheels: '${{ inputs.upload_wheels }}'
-                }
+                inputs: inputs
               });
-              console.log(`Triggered workflow ${workflowFileName}`, response);
+              console.log(`Successfully triggered workflow: ${workflowFilename}`);
             } catch (error) {
               core.setFailed(`Failed to trigger workflow: ${error.message}`);
             }
