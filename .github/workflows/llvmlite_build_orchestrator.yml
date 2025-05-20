@@ -56,8 +56,9 @@ jobs:
           PLATFORMS=$(echo "$MATRIX_JSON" | python -c "import json, sys; print(json.dumps(json.loads(sys.stdin.read())['platforms']))")
           PY_VERSIONS=$(echo "$MATRIX_JSON" | python -c "import json, sys; print(json.dumps(json.loads(sys.stdin.read())['python_versions']))")
 
-          echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
-          echo "python_versions=$PY_VERSIONS" >> $GITHUB_OUTPUT
+          # Extract and set the outputs directly using jq
+          echo "platforms=$(echo "$MATRIX_JSON" | jq -c '.platforms')" >> $GITHUB_OUTPUT
+          echo "python_versions=$(echo "$MATRIX_JSON" | jq -c '.python_versions')" >> $GITHUB_OUTPUT
 
   trigger_conda_builds:
     needs: matrix_setup
