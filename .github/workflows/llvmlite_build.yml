@@ -1,0 +1,322 @@
+name: LLVMLite Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_platforms:
+        description: 'Platforms to build'
+        required: true
+        type: choice
+        options:
+          - all
+          - linux
+          - osx
+          - win
+          - arm
+        default: 'all'
+      build_type:
+        description: 'Build type'
+        required: true
+        type: choice
+        options:
+          - all
+          - conda
+          - wheel
+        default: 'all'
+      python_versions:
+        description: 'Python versions (comma-separated, e.g., "3.10,3.11,3.12,3.13" or "all")'
+        required: true
+        default: 'all'
+        type: string
+      llvmdev_run_id:
+        description: 'LLVM Dev workflow run ID (optional)'
+        required: false
+        type: string
+      upload_packages:
+        description: 'Upload packages to Anaconda Cloud'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  # ===== JOB 1: Matrix Setup =====
+  matrix_setup:
+    runs-on: ubuntu-latest
+    outputs:
+      build_matrix: ${{ steps.set-matrix.outputs.build_matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine build matrix
+        id: set-matrix
+        run: |
+          # Platform mappings
+          LINUX_PLATFORMS=("linux-64" "linux-aarch64")
+          OSX_PLATFORMS=("osx-64" "osx-arm64")
+          WIN_PLATFORMS=("win-64")
+          ARM_PLATFORMS=("linux-aarch64" "osx-arm64")
+          ALL_PLATFORMS=("linux-64" "linux-aarch64" "osx-64" "osx-arm64" "win-64")
+
+          # Python versions
+          if [[ "${{ inputs.python_versions }}" == "all" ]]; then
+            PY_VERSIONS=("3.10" "3.11" "3.12" "3.13")
+          else
+            IFS=',' read -ra PY_VERSIONS <<< "${{ inputs.python_versions }}"
+          fi
+
+          # Determine platforms based on input
+          case "${{ inputs.build_platforms }}" in
+            "linux") PLATFORMS=("${LINUX_PLATFORMS[@]}") ;;
+            "osx") PLATFORMS=("${OSX_PLATFORMS[@]}") ;;
+            "win") PLATFORMS=("${WIN_PLATFORMS[@]}") ;;
+            "arm") PLATFORMS=("${ARM_PLATFORMS[@]}") ;;
+            *) PLATFORMS=("${ALL_PLATFORMS[@]}") ;;
+          esac
+
+          # Determine build types
+          if [[ "${{ inputs.build_type }}" == "all" ]]; then
+            BUILD_TYPES=("conda" "wheel")
+          else
+            BUILD_TYPES=("${{ inputs.build_type }}")
+          fi
+
+          # Create matrix JSON
+          matrix_json='{"include":['
+          first_entry=true
+
+          for platform in "${PLATFORMS[@]}"; do
+            for build_type in "${BUILD_TYPES[@]}"; do
+              for py_version in "${PY_VERSIONS[@]}"; do
+                # Set runner based on platform
+                if [[ "$platform" == osx-* ]]; then
+                  runner="macos-13"
+                elif [[ "$platform" == win-* ]]; then
+                  runner="windows-latest"
+                else
+                  runner="ubuntu-latest"
+                fi
+
+                # For cross-platform builds, skip certain combinations
+                if [[ "$platform" == "linux-aarch64" && "$runner" == "ubuntu-latest" ]]; then
+                  # Allow linux-aarch64 on ubuntu (will use QEMU/cross-compilation)
+                  :
+                elif [[ "$platform" == "osx-arm64" && "$runner" == "macos-13" ]]; then
+                  # Allow osx-arm64 on macos-13 (will use cross-compilation)
+                  :
+                elif [[ "$platform" =~ ^(linux|win|osx)-.*$ && "$platform" != *"-$(echo $runner | cut -d'-' -f1)"* ]]; then
+                  # Skip mismatched platform-runner combinations
+                  continue
+                fi
+
+                if [ "$first_entry" = true ]; then
+                  first_entry=false
+                else
+                  matrix_json+=','
+                fi
+
+                matrix_json+='{'
+                matrix_json+='"platform":"'$platform'",'
+                matrix_json+='"build_type":"'$build_type'",'
+                matrix_json+='"python":"'$py_version'",'
+                matrix_json+='"runner":"'$runner'"'
+                matrix_json+='}'
+              done
+            done
+          done
+
+          matrix_json+=']}'
+          echo "Generated matrix: $matrix_json"
+          echo "build_matrix=$matrix_json" >> $GITHUB_OUTPUT
+
+  # ===== JOB 2: Build Packages =====
+  build:
+    needs: matrix_setup
+    strategy:
+      matrix: ${{fromJson(needs.matrix_setup.outputs.build_matrix)}}
+      fail-fast: false
+    runs-on: ${{ matrix.runner }}
+    name: ${{ matrix.platform }}-py${{ matrix.python }}-${{ matrix.build_type }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ===== Setup platform-specific requirements =====
+      - name: Setup platform-specific requirements (Linux)
+        if: startsWith(matrix.platform, 'linux-')
+        run: |
+          # Install build dependencies for Linux
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+
+      - name: Setup platform-specific requirements (macOS)
+        if: startsWith(matrix.platform, 'osx-')
+        run: |
+          # Setup for macOS builds
+          brew install cmake
+
+      - name: Setup platform-specific requirements (Windows)
+        if: startsWith(matrix.platform, 'win-')
+        run: |
+          # Setup for Windows builds
+          choco install cmake
+
+      # ===== Setup Miniconda =====
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: ${{ matrix.python }}
+          auto-update-conda: true
+          auto-activate-base: true
+          activate-environment: ""
+
+      # ===== Conda Build Steps =====
+      - name: Install conda build dependencies
+        if: matrix.build_type == 'conda'
+        shell: bash -el {0}
+        run: |
+          conda install conda-build
+
+      - name: Download llvmdev Artifact (if provided)
+        if: ${{ inputs.llvmdev_run_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: llvmdev_${{ matrix.platform }}
+          path: llvmdev_conda_packages
+          run-id: ${{ inputs.llvmdev_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build llvmlite conda package
+        if: matrix.build_type == 'conda'
+        shell: bash -el {0}
+        run: |
+          if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
+              LLVMDEV_CHANNEL="file://$PWD/llvmdev_conda_packages"
+          else
+              LLVMDEV_CHANNEL="numba"
+          fi
+
+          # Create output directory
+          CONDA_CHANNEL_DIR="conda_channel_dir"
+          mkdir -p $CONDA_CHANNEL_DIR
+
+          # For cross-compilation, set CONDA_SUBDIR
+          if [[ "${{ matrix.platform }}" == "linux-aarch64" && "${{ matrix.runner }}" == "ubuntu-latest" ]]; then
+            export CONDA_SUBDIR=linux-aarch64
+          elif [[ "${{ matrix.platform }}" == "osx-arm64" && "${{ matrix.runner }}" == "macos-13" ]]; then
+            export CONDA_SUBDIR=osx-arm64
+          fi
+
+          # Build the package
+          conda build --debug -c "$LLVMDEV_CHANNEL" -c defaults --python=${{ matrix.python }} conda-recipes/llvmlite --output-folder=$CONDA_CHANNEL_DIR --no-test
+
+      # ===== Wheel Build Steps =====
+      - name: Install wheel build dependencies
+        if: matrix.build_type == 'wheel'
+        shell: bash -el {0}
+        run: |
+          # Install general wheel build dependencies
+          pip install wheel build twine
+
+          # Install platform-specific dependencies
+          if [[ "${{ matrix.platform }}" == linux-* ]]; then
+            conda install -c numba llvmdev=15
+          elif [[ "${{ matrix.platform }}" == osx-* ]]; then
+            conda install -c numba llvmdev=15 cmake libxml2
+          elif [[ "${{ matrix.platform }}" == win-* ]]; then
+            conda install -c numba llvmdev=15
+          fi
+
+      - name: Build wheel
+        if: matrix.build_type == 'wheel'
+        shell: bash -el {0}
+        run: |
+          # Platform-specific environment variables
+          if [[ "${{ matrix.platform }}" == "osx-"* ]]; then
+            export MACOSX_DEPLOYMENT_TARGET="10.15"
+          fi
+
+          # Build wheel
+          python -m build
+
+      # ===== Test Package =====
+      - name: Test conda package
+        if: matrix.build_type == 'conda'
+        shell: bash -el {0}
+        run: |
+          # Find the built package
+          if [[ "${{ matrix.platform }}" == linux-* ]]; then
+            PACKAGE_PATH=$(find conda_channel_dir/linux-*/llvmlite-*.conda -type f | head -n 1)
+          elif [[ "${{ matrix.platform }}" == osx-* ]]; then
+            PACKAGE_PATH=$(find conda_channel_dir/osx-*/llvmlite-*.conda -type f | head -n 1)
+          elif [[ "${{ matrix.platform }}" == win-* ]]; then
+            PACKAGE_PATH=$(find conda_channel_dir/win-*/llvmlite-*.conda -type f | head -n 1)
+          fi
+
+          echo "Testing package: $PACKAGE_PATH"
+          conda build --test $PACKAGE_PATH
+
+      - name: Test wheel
+        if: matrix.build_type == 'wheel'
+        shell: bash -el {0}
+        run: |
+          # Install the wheel
+          python -m pip install dist/*.whl
+
+          # Run tests
+          python -m llvmlite.tests
+
+      # ===== Upload Artifacts =====
+      - name: Upload conda package as artifact
+        if: matrix.build_type == 'conda'
+        uses: actions/upload-artifact@v4
+        with:
+          name: llvmlite-${{ matrix.platform }}-py${{ matrix.python }}-conda
+          path: conda_channel_dir
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload wheel as artifact
+        if: matrix.build_type == 'wheel'
+        uses: actions/upload-artifact@v4
+        with:
+          name: llvmlite-${{ matrix.platform }}-py${{ matrix.python }}-wheel
+          path: dist/*.whl
+          retention-days: 7
+          if-no-files-found: error
+
+  # ===== JOB 3: Upload to Anaconda Cloud =====
+  upload:
+    needs: build
+    if: ${{ inputs.upload_packages == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          auto-activate-base: true
+          activate-environment: ""
+
+      - name: Install anaconda-client
+        shell: bash -el {0}
+        run: conda install -c anaconda anaconda-client
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Upload packages to Anaconda Cloud
+        shell: bash -el {0}
+        env:
+          ANACONDA_API_TOKEN: ${{ secrets.NUMBA_CHANNEL_UPLOAD_TOKEN }}
+        run: |
+          # Upload conda packages
+          find artifacts -name "*.conda" -type f -exec anaconda -t "$ANACONDA_API_TOKEN" upload --force -u numba -l dev {} \;
+
+          # Upload wheel packages
+          find artifacts -name "*.whl" -type f -exec anaconda -t "$ANACONDA_API_TOKEN" upload --force -u numba -l dev {} \;

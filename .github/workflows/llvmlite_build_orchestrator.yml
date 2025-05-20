@@ -52,11 +52,12 @@ jobs:
           # Run the consolidated utility script to get the build matrix
           MATRIX_JSON=$(python buildscripts/github/workflow_utils.py get-build-matrix "${{ inputs.build_platforms }}" "${{ inputs.python_versions }}")
 
-          echo "Matrix JSON: $MATRIX_JSON"
+          # Extract and set the outputs
+          PLATFORMS=$(echo "$MATRIX_JSON" | python -c "import json, sys; print(json.dumps(json.loads(sys.stdin.read())['platforms']))")
+          PY_VERSIONS=$(echo "$MATRIX_JSON" | python -c "import json, sys; print(json.dumps(json.loads(sys.stdin.read())['python_versions']))")
 
-          # Extract and set the outputs directly using jq
-          echo "platforms=$(echo "$MATRIX_JSON" | jq -c '.platforms')" >> $GITHUB_OUTPUT
-          echo "python_versions=$(echo "$MATRIX_JSON" | jq -c '.python_versions')" >> $GITHUB_OUTPUT
+          echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
+          echo "python_versions=$PY_VERSIONS" >> $GITHUB_OUTPUT
 
   trigger_conda_builds:
     needs: matrix_setup
@@ -85,6 +86,7 @@ jobs:
           echo "workflow_file=$WORKFLOW" >> $GITHUB_OUTPUT
 
       - name: Trigger platform-specific conda workflow
+        id: trigger-workflow
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -119,6 +121,46 @@ jobs:
                 inputs: inputs
               });
               console.log(`Successfully triggered workflow: ${workflowFilename}`);
+
+              // Get the run ID of the newly triggered workflow
+              let run_id = null;
+              let attempts = 0;
+              const max_attempts = 5;
+
+              while (run_id === null && attempts < max_attempts) {
+                attempts++;
+                console.log(`Checking for workflow run (attempt ${attempts}/${max_attempts})...`);
+
+                // Wait a few seconds for the workflow to start
+                await new Promise(resolve => setTimeout(resolve, 3000));
+
+                // List workflow runs for the workflow we triggered
+                const { data: runs } = await github.rest.actions.listWorkflowRuns({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: workflow.id,
+                  branch: context.ref.replace('refs/heads/', ''),
+                  per_page: 5
+                });
+
+                // Look for a run that was started after our trigger
+                if (runs.workflow_runs && runs.workflow_runs.length > 0) {
+                  // Get the most recent run
+                  run_id = runs.workflow_runs[0].id;
+                  console.log(`Found workflow run ID: ${run_id}`);
+
+                  // Add information to job summary
+                  await core.summary
+                    .addHeading(`Triggered ${workflowFilename} for ${matrix.platform}`)
+                    .addLink(`View Workflow Run`, `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${run_id}`)
+                    .write();
+                }
+              }
+
+              if (run_id === null) {
+                console.log("Could not find the workflow run ID after multiple attempts");
+              }
+
             } catch (error) {
               core.setFailed(`Failed to trigger workflow: ${error.message}`);
             }
@@ -150,6 +192,7 @@ jobs:
           echo "workflow_file=$WORKFLOW" >> $GITHUB_OUTPUT
 
       - name: Trigger platform-specific wheel workflow
+        id: trigger-workflow
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -185,6 +228,46 @@ jobs:
                 inputs: inputs
               });
               console.log(`Successfully triggered workflow: ${workflowFilename}`);
+
+              // Get the run ID of the newly triggered workflow
+              let run_id = null;
+              let attempts = 0;
+              const max_attempts = 5;
+
+              while (run_id === null && attempts < max_attempts) {
+                attempts++;
+                console.log(`Checking for workflow run (attempt ${attempts}/${max_attempts})...`);
+
+                // Wait a few seconds for the workflow to start
+                await new Promise(resolve => setTimeout(resolve, 3000));
+
+                // List workflow runs for the workflow we triggered
+                const { data: runs } = await github.rest.actions.listWorkflowRuns({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: workflow.id,
+                  branch: context.ref.replace('refs/heads/', ''),
+                  per_page: 5
+                });
+
+                // Look for a run that was started after our trigger
+                if (runs.workflow_runs && runs.workflow_runs.length > 0) {
+                  // Get the most recent run
+                  run_id = runs.workflow_runs[0].id;
+                  console.log(`Found workflow run ID: ${run_id}`);
+
+                  // Add information to job summary
+                  await core.summary
+                    .addHeading(`Triggered ${workflowFilename} for ${matrix.platform}`)
+                    .addLink(`View Workflow Run`, `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${run_id}`)
+                    .write();
+                }
+              }
+
+              if (run_id === null) {
+                console.log("Could not find the workflow run ID after multiple attempts");
+              }
+
             } catch (error) {
               core.setFailed(`Failed to trigger workflow: ${error.message}`);
             }
