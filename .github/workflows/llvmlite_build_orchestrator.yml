@@ -52,12 +52,11 @@ jobs:
           # Run the consolidated utility script to get the build matrix
           MATRIX_JSON=$(python buildscripts/github/workflow_utils.py get-build-matrix "${{ inputs.build_platforms }}" "${{ inputs.python_versions }}")
 
-          # Extract and set the outputs
-          PLATFORMS=$(echo "$MATRIX_JSON" | python -c "import json, sys; print(json.loads(sys.stdin.read())['platforms'])" | python -c "import json, sys; print(json.dumps(json.loads(sys.stdin.read())))")
-          PY_VERSIONS=$(echo "$MATRIX_JSON" | python -c "import json, sys; print(json.loads(sys.stdin.read())['python_versions'])" | python -c "import json, sys; print(json.dumps(json.loads(sys.stdin.read())))")
+          echo "Matrix JSON: $MATRIX_JSON"
 
-          echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
-          echo "python_versions=$PY_VERSIONS" >> $GITHUB_OUTPUT
+          # Extract and set the outputs directly using jq
+          echo "platforms=$(echo "$MATRIX_JSON" | jq -c '.platforms')" >> $GITHUB_OUTPUT
+          echo "python_versions=$(echo "$MATRIX_JSON" | jq -c '.python_versions')" >> $GITHUB_OUTPUT
 
   trigger_conda_builds:
     needs: matrix_setup
