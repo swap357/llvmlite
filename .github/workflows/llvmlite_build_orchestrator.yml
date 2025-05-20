@@ -51,6 +51,7 @@ jobs:
         run: |
           # Run the consolidated utility script to get the build matrix
           MATRIX_JSON=$(python buildscripts/github/workflow_utils.py get-build-matrix "${{ inputs.build_platforms }}" "${{ inputs.python_versions }}")
+
           echo "Matrix JSON: $MATRIX_JSON"
 
           # Extract and set the outputs directly using jq
