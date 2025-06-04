@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-import json
 import os
 from pathlib import Path
+
 
 def should_run_workflow():
     """
@@ -21,7 +21,7 @@ def should_run_workflow():
 
     # Run when specific label is applied
     elif event == "label" and label == "gha_build_and_test":
-        print(f"Target label 'gha_build_and_test' detected - running workflow")
+        print("Build label detected - running workflow")
         return True
 
     # Always run on manual dispatch
@@ -30,15 +30,17 @@ def should_run_workflow():
         return True
 
     else:
-        print(f"No matching trigger found - skipping workflow")
+        print("No matching trigger found - skipping workflow")
         return False
+
 
 if __name__ == "__main__":
     should_run = should_run_workflow()
 
     # Output for GitHub Actions
     if "GITHUB_OUTPUT" in os.environ:
-        Path(os.environ["GITHUB_OUTPUT"]).write_text(f"should_run={str(should_run).lower()}")
+        output_text = f"should_run={str(should_run).lower()}"
+        Path(os.environ["GITHUB_OUTPUT"]).write_text(output_text)
 
     # Exit with appropriate code for shell usage
     exit(0 if should_run else 1)
