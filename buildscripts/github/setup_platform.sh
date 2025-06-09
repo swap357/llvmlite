@@ -12,23 +12,25 @@ case "${PLATFORM}" in
         sdk_dir="buildscripts/github"
         mkdir -p "${sdk_dir}"
 
-        # Download SDK
-        echo "Downloading MacOSX10.10.sdk.tar.xz"
-        wget -q https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX10.10.sdk.tar.xz
+        # Download SDK if checksum file exists
+        if [ -f "${sdk_dir}/MacOSX10.10.sdk.checksum" ]; then
+            echo "Downloading MacOSX10.10.sdk.tar.xz"
+            wget -q https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX10.10.sdk.tar.xz
 
-        # Verify checksum
-        echo "Verifying SDK checksum"
-        shasum -c "${sdk_dir}/MacOSX10.10.sdk.checksum" || exit 1
+            echo "Verifying SDK checksum"
+            shasum -c "${sdk_dir}/MacOSX10.10.sdk.checksum" || exit 1
 
-        # Extract SDK to /opt
-        echo "Extracting SDK to /opt"
-        sudo mkdir -p /opt
-        sudo tar -xf MacOSX10.10.sdk.tar.xz -C /opt
-        echo "macOS SDK setup complete"
+            echo "Extracting SDK to /opt"
+            sudo mkdir -p /opt
+            sudo tar -xf MacOSX10.10.sdk.tar.xz -C /opt
+            echo "macOS SDK setup complete"
+        else
+            echo "No SDK checksum file found, skipping SDK download"
+        fi
         ;;
     *)
         echo "No specific setup required for platform: ${PLATFORM}"
         ;;
 esac
 
-echo "Platform setup complete for ${PLATFORM}" 
+echo "Platform setup complete for ${PLATFORM}"
