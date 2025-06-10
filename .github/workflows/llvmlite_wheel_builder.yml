@@ -70,7 +70,15 @@ jobs:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_LABEL_NAME: ${{ github.event.label.name }}
           GITHUB_WORKFLOW_INPUT: ${{ toJson(github.event.inputs) }}
-        run: ./buildscripts/github/llvmlite_wheel_evaluate.py
+        run: |
+          set -ex
+          echo "=== Environment ==="
+          echo "Event: $GITHUB_EVENT_NAME"
+          echo "Label: $GITHUB_LABEL_NAME"
+          echo "Inputs: $GITHUB_WORKFLOW_INPUT"
+          echo "=== Running evaluation script ==="
+          ./buildscripts/github/llvmlite_wheel_evaluate.py
+          echo "=== Evaluation completed ==="
 
   build:
     needs: check
