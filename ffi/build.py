@@ -125,6 +125,30 @@ def main_windows():
     remove_msvc_whole_program_optimization()
     generator = find_windows_generator()
     config = 'Release'
+
+    # Debug: Show file structure and verify PASSREGISTRY.def
+    print(f"=== DEBUG: main_windows() ===")
+    print(f"here_dir (source): {here_dir}")
+    print(f"build_dir (build): {build_dir}")
+    print(f"target_dir (target): {target_dir}")
+
+    passregistry_path = os.path.join(here_dir, 'PASSREGISTRY.def')
+    print(f"Looking for PASSREGISTRY.def at: {passregistry_path}")
+    if os.path.exists(passregistry_path):
+        print(f"✅ PASSREGISTRY.def EXISTS")
+        print(f"   File size: {os.path.getsize(passregistry_path)} bytes")
+    else:
+        print(f"❌ PASSREGISTRY.def NOT FOUND")
+
+    print(f"Contents of {here_dir}:")
+    for item in os.listdir(here_dir):
+        item_path = os.path.join(here_dir, item)
+        if os.path.isfile(item_path):
+            print(f"  📄 {item}")
+        else:
+            print(f"  📁 {item}/")
+    print("=== END DEBUG ===")
+
     if not os.path.exists(build_dir):
         os.mkdir(build_dir)
     # Run configuration step

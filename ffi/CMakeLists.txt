@@ -3,6 +3,15 @@ cmake_minimum_required(VERSION 3.5)
 # This will define the name of the solution file in the build directory
 project(llvmlite_ffi)
 
+# Debug: Show paths and check PASSREGISTRY.def
+message(STATUS "CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
+message(STATUS "CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/PASSREGISTRY.def")
+    message(STATUS "✅ PASSREGISTRY.def found at: ${CMAKE_CURRENT_SOURCE_DIR}/PASSREGISTRY.def")
+else()
+    message(WARNING "❌ PASSREGISTRY.def NOT FOUND at: ${CMAKE_CURRENT_SOURCE_DIR}/PASSREGISTRY.def")
+endif()
+
 include(CheckIncludeFiles)
 
 if(NOT MSVC)

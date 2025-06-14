@@ -67,6 +67,21 @@ jobs:
           fi
           conda install -c "$CHAN" llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }} cmake libxml2 python-build
 
+      - name: Debug - Check PASSREGISTRY.def exists
+        run: |
+          echo "=== Checking current directory ==="
+          pwd
+          ls -la
+          echo "=== Checking ffi directory ==="
+          ls -la ffi/
+          echo "=== Specifically looking for PASSREGISTRY.def ==="
+          if [ -f "ffi/PASSREGISTRY.def" ]; then
+            echo "✅ PASSREGISTRY.def EXISTS in ffi/"
+            ls -la ffi/PASSREGISTRY.def
+          else
+            echo "❌ PASSREGISTRY.def NOT FOUND in ffi/"
+          fi
+
       - name: Build wheel
         run: python -m build
 
