@@ -16,11 +16,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FALLBACK_LLVMDEV_VERSION: "15"
-  CONDA_CHANNEL_NUMBA_LINUX: numba/label/manylinux2014_x86_64
-  CONDA_CHANNEL_NUMBA_OSX: numba/label/osx_wheel
-  CONDA_CHANNEL_NUMBA_WIN: numba/label/win64_wheel
-  VALIDATION_PYTHON_VERSION: "3.12"
   ARTIFACT_RETENTION_DAYS: 7
   PYTHON_DEV_VERSION: "3.14-dev"
 
@@ -32,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-13, macos-14, windows-latest]
+        os: [ubuntu-latest, macos-13, macos-14]
         include:
           - os: ubuntu-latest
             platform: linux-64
@@ -40,8 +35,6 @@ jobs:
             platform: osx-64
           - os: macos-14
             platform: osx-arm64
-          - os: windows-latest
-            platform: win-64
 
     defaults:
       run:
@@ -63,7 +56,13 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake llvm-dev
+          sudo apt-get install -y build-essential cmake wget lsb-release software-properties-common gnupg
+          # Install LLVM 15 specifically (llvmlite requirement)
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          UBUNTU_CODENAME=$(lsb_release -sc)
+          sudo add-apt-repository "deb http://apt.llvm.org/${UBUNTU_CODENAME}/ llvm-toolchain-${UBUNTU_CODENAME}-15 main"
+          sudo apt-get update
+          sudo apt-get install -y llvm-15-dev
 
       - name: Install system dependencies (macOS Intel)
         if: matrix.os == 'macos-13'
@@ -74,11 +73,6 @@ jobs:
         if: matrix.os == 'macos-14'
         run: |
           brew install llvm@15 cmake
-
-      - name: Install system dependencies (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          choco install llvm cmake
 
       - name: Download llvmdev Artifact
         if: ${{ inputs.llvmdev_run_id != '' }}
@@ -93,8 +87,14 @@ jobs:
       - name: Setup LLVM environment (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          echo "LLVM_CONFIG=/usr/bin/llvm-config" >> $GITHUB_ENV
-          echo "LLVM_VERSION=$(llvm-config --version)" >> $GITHUB_ENV
+          echo "LLVM_CONFIG=/usr/bin/llvm-config-15" >> $GITHUB_ENV
+          echo "LLVM_VERSION=$(llvm-config-15 --version)" >> $GITHUB_ENV
+          echo "PATH=/usr/lib/llvm-15/bin:$PATH" >> $GITHUB_ENV
+
+          # Log LLVM info for debugging
+          echo "LLVM Config: /usr/bin/llvm-config-15"
+          echo "LLVM Version: $(llvm-config-15 --version)"
+          echo "LLVM Path: /usr/lib/llvm-15"
 
       - name: Setup LLVM environment (macOS)
         if: startsWith(matrix.os, 'macos')
@@ -107,12 +107,6 @@ jobs:
           # Log architecture info for debugging
           echo "Architecture: $(uname -m)"
           echo "LLVM Path: $LLVM_PATH"
-
-      - name: Setup LLVM environment (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          echo "LLVM_CONFIG=llvm-config" >> $GITHUB_ENV
-          echo "LLVM_VERSION=$(llvm-config --version)" >> $GITHUB_ENV
 
       - name: Install Python dependencies
         run: |
@@ -145,7 +139,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [linux-64, osx-64, osx-arm64, win-64]
+        platform: [linux-64, osx-64, osx-arm64]
 
     defaults:
       run:
@@ -184,7 +178,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-13, macos-14, windows-latest]
+        os: [ubuntu-latest, macos-13, macos-14]
         include:
           - os: ubuntu-latest
             platform: linux-64
@@ -192,8 +186,6 @@ jobs:
             platform: osx-64
           - os: macos-14
             platform: osx-arm64
-          - os: windows-latest
-            platform: win-64
 
     defaults:
       run:
@@ -255,7 +247,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [linux-64, osx-64, osx-arm64, win-64]
+        platform: [linux-64, osx-64, osx-arm64]
 
     defaults:
       run:
