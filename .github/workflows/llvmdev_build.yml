@@ -93,7 +93,7 @@ jobs:
       - name: Install conda-build
         run: |
           if [[ "${{ matrix.platform }}" == "linux-arm64" ]]; then
-            conda install conda-build "py-lief<16"
+            conda install conda-build "py-lief<0.16"
           else
             conda install conda-build
           fi
