@@ -11,7 +11,7 @@ inputs = os.environ.get("GITHUB_WORKFLOW_INPUT", "{}")
 
 runner_mapping = {
     "linux-64": "ubuntu-24.04",
-    "linux-aarch64": "ubuntu-24.04-arm",
+    "linux-arm64": "ubuntu-24.04-arm",
     "osx-64": "macos-13",
     "osx-arm64": "macos-14",
     "win-64": "windows-2019",
