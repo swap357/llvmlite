@@ -39,6 +39,13 @@ if [[ $target_platform == osx-arm64 ]]; then
   CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_ENABLE_WERROR=FALSE"
 fi
 
+# For wheel builds: ensure C++ ABI compatibility with older systems
+if [[ "$target_platform" == "linux-64" ]]; then
+  # Use older C++ ABI for better compatibility
+  CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
+  export CXXFLAGS="${CXXFLAGS} -D_GLIBCXX_USE_CXX11_ABI=0"
+fi
+
 cmake -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_LIBRARY_PATH="${PREFIX}" \
