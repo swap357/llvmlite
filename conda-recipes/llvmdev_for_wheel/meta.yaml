@@ -70,6 +70,8 @@ test:
     - test -f $PREFIX/lib/libLLVMCore.a                      # [not win]
 
     # LLD tests
+    - lld ld.lld
+    - lld $PREFIX/bin/ld.lld
     - ld.lld --version                                       # [unix]
     - lld-link /?                                            # [win]
 
