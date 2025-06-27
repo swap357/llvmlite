@@ -89,16 +89,24 @@ elif event == "workflow_dispatch":
     print("workflow_dispatch detected")
     params = json.loads(inputs)
     platform = params.get("platform", "all")
-    if platform == "all":
-        include = default_include
-    else:
-        include = [
-            {
-                "runner": runner_mapping[platform],
-                "platform": platform,
-                "recipe": params.get("recipe", "llvmdev"),
-            }
+    recipe = params.get("recipe", "all")
+
+    # Start with the full matrix
+    filtered_matrix = default_include
+
+    # Filter by platform if a specific one is chosen
+    if platform != "all":
+        filtered_matrix = [
+            item for item in filtered_matrix if item["platform"] == platform
         ]
+
+    # Filter by recipe if a specific one is chosen
+    if recipe != "all":
+        filtered_matrix = [
+            item for item in filtered_matrix if item["recipe"] == recipe
+        ]
+
+    include = filtered_matrix
 else:
     include = {}
 

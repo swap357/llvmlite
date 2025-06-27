@@ -23,10 +23,11 @@ on:
           - win-64
       recipe:
         description: Recipe to build
-        default: llvmdev
+        default: all
         required: true
         type: choice
         options:
+          - all
           - llvmdev
           - llvmdev_for_wheel
 
