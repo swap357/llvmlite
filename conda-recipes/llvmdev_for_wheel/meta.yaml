@@ -37,7 +37,7 @@ build:
 requirements:
   build:
     # Do not use the compiler on linux
-    - {{ compiler('cxx') }}  # [not linux]
+    - {{ compiler('cxx') }}
     - cmake
     - ninja
     - python >=3
