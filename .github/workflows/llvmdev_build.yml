@@ -127,10 +127,10 @@ jobs:
             "$MANYLINUX_IMAGE" \
             bash -c "git config --global --add safe.directory /root/llvmlite && /root/llvmlite/buildscripts/manylinux/build_llvmdev.sh $MINICONDA_FILE"
 
-          # The script outputs to docker_output/<platform>/*.tar.bz2
+          # The script outputs to docker_output/<platform>/*.conda
           # Move the package to the upload directory.
           mkdir -p "${CONDA_CHANNEL_DIR}"
-          mv docker_output/*/*.tar.bz2 "${CONDA_CHANNEL_DIR}/"
+          mv docker_output/*/*.conda "${CONDA_CHANNEL_DIR}/"
           ls -lah "${CONDA_CHANNEL_DIR}"
 
       - name: Build and test conda package - non-linux platforms
