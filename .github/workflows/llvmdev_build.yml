@@ -142,8 +142,8 @@ jobs:
           EXTRA_ARGS=()
           if [[ "${{ matrix.platform }}" == "osx-64" ]]; then
             EXTRA_ARGS=(--variants '{"CONDA_BUILD_SYSROOT": "/opt/MacOSX10.10.sdk"}')
-            export CXXFLAGS="${CXXFLAGS} -isysroot /opt/MacOSX10.10.sdk"
-            export LDFLAGS="${LDFLAGS} -isysroot /opt/MacOSX10.10.sdk"
+            echo "CXXFLAGS=${CXXFLAGS} -isysroot /opt/MacOSX10.10.sdk" >> $GITHUB_ENV
+            echo "LDFLAGS=${LDFLAGS} -isysroot /opt/MacOSX10.10.sdk" >> $GITHUB_ENV
           fi
           conda build "./conda-recipes/${{ matrix.recipe }}" "--output-folder=${CONDA_CHANNEL_DIR}" "${EXTRA_ARGS[@]}"
           ls -lah "${CONDA_CHANNEL_DIR}"
