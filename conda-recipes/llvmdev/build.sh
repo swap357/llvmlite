@@ -36,6 +36,13 @@ if [[ $target_platform == osx-arm64 ]]; then
   CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_ENABLE_WERROR=FALSE"
 fi
 
+echo "--- DUMPING ENV VARS AND CMAKE ARGS ---"
+env | sort
+echo "--- CXXFLAGS: $CXXFLAGS"
+echo "--- LDFLAGS: $LDFLAGS"
+echo "--- CMAKE_ARGS: $CMAKE_ARGS"
+echo "---"
+
 cmake -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_LIBRARY_PATH="${PREFIX}" \
