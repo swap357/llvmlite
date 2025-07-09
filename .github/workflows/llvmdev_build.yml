@@ -141,11 +141,7 @@ jobs:
           mkdir -p "${CONDA_CHANNEL_DIR}"
           EXTRA_ARGS=()
           if [[ "${{ matrix.platform }}" == "osx-64" ]]; then
-            EXTRA_ARGS=(--variants '{
-              "CONDA_BUILD_SYSROOT": "/opt/MacOSX10.10.sdk",
-              "cxxflags": "-isysroot /opt/MacOSX10.10.sdk",
-              "ldflags": "-isysroot /opt/MacOSX10.10.sdk"
-            }')
+            EXTRA_ARGS=(--variants '{"CONDA_BUILD_SYSROOT": "/opt/MacOSX10.10.sdk"}')
           fi
           conda build "./conda-recipes/${{ matrix.recipe }}" "--output-folder=${CONDA_CHANNEL_DIR}" "${EXTRA_ARGS[@]}"
           ls -lah "${CONDA_CHANNEL_DIR}"
