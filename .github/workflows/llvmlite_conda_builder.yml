@@ -26,6 +26,8 @@ on:
           - osx-64
           - osx-arm64
           - win-64
+  issue_comment:
+    types: [created]
 
 # permissions for issue_comment events to read workflow runs and write comments on PRs
 permissions:
@@ -48,6 +50,7 @@ env:
 jobs:
   check:
     runs-on: ubuntu-24.04
+    if: github.event_name != 'issue_comment' || (github.event.issue.pull_request && contains(github.event.comment.body, '/gha run'))
     outputs:
       matrix: ${{ steps.evaluate.outputs.matrix }}
       pr_comment_trigger_ref: ${{ steps.cmd.outputs.ref }}
@@ -107,6 +110,7 @@ jobs:
     needs: check
     name: ${{ matrix.platform }}-py${{ matrix.python-version }}-build
     runs-on: ${{ matrix.runner }}
+    if: github.event_name != 'issue_comment' || (github.event.issue.pull_request && contains(github.event.comment.body, '/gha run'))
     defaults:
       run:
         shell: bash -elx {0}
@@ -173,6 +177,7 @@ jobs:
     name: ${{ matrix.platform }}-py${{ matrix.python-version }}-test
     needs: [check, build]
     runs-on: ${{ matrix.runner }}
+    if: github.event_name != 'issue_comment' || (github.event.issue.pull_request && contains(github.event.comment.body, '/gha run'))
     defaults:
       run:
         shell: bash -elx {0}
