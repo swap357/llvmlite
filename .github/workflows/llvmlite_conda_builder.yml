@@ -1,6 +1,8 @@
 name: llvmlite_conda_builder
 
 on:
+  issue_comment:
+    types: [created, edited]
   push:
     branches:
       - main
