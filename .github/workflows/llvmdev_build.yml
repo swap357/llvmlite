@@ -80,8 +80,21 @@ jobs:
       fail-fast: false
 
     steps:
+      - name: Command Check
+        uses: github/command@v1
+        id: cmd
+        if: ${{ github.event_name == 'issue_comment' }}
+        with:
+          command: "/gha llvmdev"
+          reaction: "rocket"
+          allowed_contexts: pull_request
+          allow_forks: true
+          param_separator: " "
+
       - name: Clone repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && steps.cmd.outputs.ref || github.ref }}
 
       - name: Setup platform-specific requirements
         run: |
