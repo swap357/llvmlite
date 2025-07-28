@@ -86,7 +86,7 @@ jobs:
           RECIPE="all"
 
           PARAMS=(${{ steps.cmd.outputs.params }})
-          echo "PARAMS: ${PARAMS[@]}"
+          echo "PARAMS: ${PARAMS[*]}"
           if [[ "${{ steps.cmd.outputs.continue }}" == "true" ]]; then
             SHOULD_RUN="true"
             for param in "${PARAMS[@]}"; do
