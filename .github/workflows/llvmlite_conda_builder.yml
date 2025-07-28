@@ -103,7 +103,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          BODY="Workflow triggered. <br> Run link: $RUN_URL"
+          BODY="llvmlite workflow triggered<br><br><pre>workflow id: ${{ github.run_id }}<br>details: $RUN_URL</pre>"
           gh pr comment ${{ steps.cmd.outputs.issue_number }} --body "$BODY"
 
 
@@ -113,7 +113,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          BODY="Command failed. <br> Check run logs: $RUN_URL"
+          BODY="llvmlite workflow failed<br><br><pre>workflow id: ${{ github.run_id }}<br>details: $RUN_URL</pre>"
           gh pr comment ${{ steps.cmd.outputs.issue_number }} --body "$BODY"
 
       - name: Evaluate
