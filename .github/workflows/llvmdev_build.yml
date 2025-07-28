@@ -96,8 +96,8 @@ jobs:
             done
           fi
           PARAMS_JSON=$(printf '{"platform": "%s", "recipe": "%s"}' "$PLATFORM" "$RECIPE")
-          echo "should_run=$SHOULD_RUN" >> $GITHUB_OUTPUT
-          echo "command_params_json=$PARAMS_JSON" >> $GITHUB_OUTPUT
+          echo "should_run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+          echo "command_params_json=$PARAMS_JSON" >> "$GITHUB_OUTPUT"
 
       - name: Post Success Comment for PR Comment Trigger
         if: ${{ github.event_name == 'issue_comment' && steps.validator.outputs.should_run == 'true' }}

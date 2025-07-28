@@ -93,9 +93,11 @@ jobs:
             done
           fi
           PARAMS_JSON=$(printf '{"platform": "%s", "llvmdev_run_id": "%s"}' "$PLATFORM" "$LLVMDEV_RUN_ID")
-          echo "should_run=$SHOULD_RUN" >> $GITHUB_OUTPUT
-          echo "command_params_json=$PARAMS_JSON" >> $GITHUB_OUTPUT
-          echo "llvmdev_runid=$LLVMDEV_RUN_ID" >> $GITHUB_OUTPUT
+          {
+            echo "should_run=$SHOULD_RUN"
+            echo "command_params_json=$PARAMS_JSON"
+            echo "llvmdev_runid=$LLVMDEV_RUN_ID"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Post Success Comment for PR Comment Trigger
         if: ${{ github.event_name == 'issue_comment' && steps.validator.outputs.should_run == 'true' }}
