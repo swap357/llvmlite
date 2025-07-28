@@ -77,9 +77,9 @@ jobs:
 
       - name: Validate command
         id: validator
-        if: ${{ github.event_name == 'issue_comment' }}
+        if: ${{ github.event_name == 'issue_comment' && steps.cmd.outputs.continue == 'true' }}
         run: |
-          SHOULD_RUN="false"
+          SHOULD_RUN="true"
           PARAMS_JSON="{}"
           # Default values
           PLATFORM="all"
@@ -87,15 +87,12 @@ jobs:
 
           PARAMS=(${{ steps.cmd.outputs.params }})
           echo "PARAMS: ${PARAMS[*]}"
-          if [[ "${{ steps.cmd.outputs.continue }}" == "true" ]]; then
-            SHOULD_RUN="true"
-            for param in "${PARAMS[@]}"; do
-              case "$param" in
-                platform=*) PLATFORM="${param#*=}" ;;
-                recipe=*) RECIPE="${param#*=}" ;;
-              esac
-            done
-          fi
+          for param in "${PARAMS[@]}"; do
+            case "$param" in
+              platform=*) PLATFORM="${param#*=}" ;;
+              recipe=*) RECIPE="${param#*=}" ;;
+            esac
+          done
           PARAMS_JSON=$(printf '{"platform": "%s", "recipe": "%s"}' "$PLATFORM" "$RECIPE")
           echo "should_run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
           echo "command_params_json=$PARAMS_JSON" >> "$GITHUB_OUTPUT"
@@ -110,7 +107,7 @@ jobs:
           gh pr comment ${{ steps.cmd.outputs.issue_number }} --body "$BODY"
 
       - name: Post Failure Comment for PR Comment Trigger
-        if: ${{ github.event_name == 'issue_comment' && steps.validator.outputs.should_run != 'true' }}
+        if: ${{ github.event_name == 'issue_comment' && steps.cmd.outputs.continue == 'true' && steps.validator.outputs.should_run != 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
