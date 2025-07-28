@@ -66,7 +66,7 @@ jobs:
         id: cmd
         if: ${{ github.event_name == 'issue_comment' }}
         with:
-          command: "/gha"
+          command: "/gha llvmlite"
           reaction: "rocket"
           allowed_contexts: pull_request
           allow_forks: true
@@ -83,9 +83,10 @@ jobs:
           PLATFORM="all"
 
           PARAMS=(${{ steps.cmd.outputs.params }})
-          if [[ "${{ steps.cmd.outputs.continue }}" == "true" && "${PARAMS[0]}" == "llvmlite" ]]; then
+          echo "PARAMS: $PARAMS"
+          if [[ "${{ steps.cmd.outputs.continue }}" == "true" ]]; then
             SHOULD_RUN="true"
-            for param in "${PARAMS[@]:1}"; do
+            for param in "${PARAMS[@]}"; do
               case "$param" in
                 platform=*) PLATFORM="${param#*=}" ;;
                 llvmdev_run_id=*) LLVMDEV_RUN_ID="${param#*=}" ;;
@@ -137,6 +138,7 @@ jobs:
 
   build:
     needs: check
+    if: ${{ github.event_name != 'issue_comment' || needs.check.outputs.pr_comment_trigger_status != 'false' }}
     name: ${{ matrix.platform }}-py${{ matrix.python-version }}-build
     runs-on: ${{ matrix.runner }}
     defaults:
@@ -204,6 +206,7 @@ jobs:
   test:
     name: ${{ matrix.platform }}-py${{ matrix.python-version }}-test
     needs: [check, build]
+    if: ${{ github.event_name != 'issue_comment' || needs.check.outputs.pr_comment_trigger_status != 'false' }}
     runs-on: ${{ matrix.runner }}
     defaults:
       run:

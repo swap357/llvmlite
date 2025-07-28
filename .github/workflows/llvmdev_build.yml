@@ -69,7 +69,7 @@ jobs:
         id: cmd
         if: ${{ github.event_name == 'issue_comment' }}
         with:
-          command: "/gha"
+          command: "/gha llvmdev"
           reaction: "rocket"
           allowed_contexts: pull_request
           allow_forks: true
@@ -86,9 +86,10 @@ jobs:
           RECIPE="all"
 
           PARAMS=(${{ steps.cmd.outputs.params }})
-          if [[ "${{ steps.cmd.outputs.continue }}" == "true" && "${PARAMS[0]}" == "llvmdev" ]]; then
+          echo "PARAMS: $PARAMS"
+          if [[ "${{ steps.cmd.outputs.continue }}" == "true" ]]; then
             SHOULD_RUN="true"
-            for param in "${PARAMS[@]:1}"; do
+            for param in "${PARAMS[@]}"; do
               case "$param" in
                 platform=*) PLATFORM="${param#*=}" ;;
                 recipe=*) RECIPE="${param#*=}" ;;
