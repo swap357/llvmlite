@@ -122,7 +122,6 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_WORKFLOW_INPUT: ${{ (github.event_name == 'issue_comment' && steps.validator.outputs.command_params_json) || toJson(github.event.inputs) }}
-          GITHUB_COMMAND_PARAMS_JSON: ${{ steps.validator.outputs.command_params_json }}
         run: |
           set -ex
           echo "=== Environment ==="
