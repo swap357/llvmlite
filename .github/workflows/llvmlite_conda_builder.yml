@@ -135,7 +135,7 @@ jobs:
 
   build:
     needs: check
-    if: ${{ github.event_name != 'issue_comment' || needs.check.outputs.pr_comment_trigger_status != 'false' }}
+    if: ${{ (github.event_name == 'issue_comment' && needs.check.outputs.pr_comment_trigger_status == 'true') || github.event_name != 'issue_comment' }}
     name: ${{ matrix.platform }}-py${{ matrix.python-version }}-build
     runs-on: ${{ matrix.runner }}
     defaults:
@@ -203,7 +203,7 @@ jobs:
   test:
     name: ${{ matrix.platform }}-py${{ matrix.python-version }}-test
     needs: [check, build]
-    if: ${{ github.event_name != 'issue_comment' || needs.check.outputs.pr_comment_trigger_status != 'false' }}
+    if: ${{ (github.event_name == 'issue_comment' && needs.check.outputs.pr_comment_trigger_status == 'true') || github.event_name != 'issue_comment' }}
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
