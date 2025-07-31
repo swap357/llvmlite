@@ -53,6 +53,9 @@ env:
 jobs:
 
   check:
+    if: |
+      github.event_name != 'issue_comment' ||
+      contains(github.event.comment.body, '/gha llvmdev')
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.evaluate.outputs.matrix }}
