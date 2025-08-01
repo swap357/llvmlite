@@ -2,29 +2,20 @@
 """
 ci_runner.py
 
-A flexible wrapper around GitHub CLI (`gh`) to manage llvmlite CI flows:
- 1. Trigger the llvmdev build workflow
- 2. Trigger the llvmlite conda-builder workflow (optional use of a local llvmdev build artifact)
- 3. Trigger wheel-builder workflows using the llvmdev_for_wheel artifact (optional use of local llvmdev)
- 4. Monitor runs until completion (requires success)
- 5. Download selected artifacts (only from successful runs)
+A flexible wrapper around GitHub CLI (`gh`) to manage conda-only CI builds for llvmlite and numba:
+ 1. Trigger llvmdev build workflow on numba/llvmlite
+ 2. Trigger llvmlite conda-builder workflow on numba/llvmlite
+ 3. Trigger numba conda-builder workflows on numba/numba for all platforms
+ 4. Monitor each run to successful completion
+ 5. Download conda artifacts
 
-Usage:
+Usage example:
   export GH_TOKEN=<your_token>
-  ./ci_runner.py --repo numba/llvmlite --branch <branch> \
-                 --steps llvmdev,llvmlite_conda \
-                 --reuse-run llvmdev:16662684974
-
-Step identifiers:
-  - llvmdev             : Build LLVM development packages
-  - llvmlite_conda      : Build llvmlite conda packages; if no local llvmdev run exists, will use published llvmdev packages
-  - llvmlite_wheels     : Build llvmlite wheels for all platforms; if no local llvmdev run exists, will use published llvmdev_for_wheel packages
-  - download_conda      : Download llvmlite conda artifacts (requires llvmlite_conda success)
-  - download_wheels     : Download llvmlite wheel artifacts (requires llvmlite_wheels success)
-  - all                 : Execute all steps sequentially
-
-Flags:
-  --reuse-run STEP:RUN_ID   Pre-seed state with a manual run ID for a step (sets completed=false).
+  ./ci_runner.py \
+    --llvmlite-branch pr-1240-llvmlite \
+    --numba-branch pr-1240-numba \
+    --steps llvmdev,llvmlite_conda,numba_conda,download_llvmlite_conda,download_numba_conda \
+    --reuse-run llvmdev:12345
 """
 
 import argparse
@@ -38,299 +29,302 @@ import time
 from pathlib import Path
 from typing import Dict, Any, Set
 
-# Constants
-STATE_FILE = Path(".ci_state.json")
-DEFAULT_REPO = "numba/llvmlite"
+# Repository constants
+LLVMLITE_REPO = "swap357/llvmlite"
+NUMBA_REPO    = "swap357/numba"
 DEFAULT_BRANCH = "main"
-ALL_STEPS = {"llvmdev", "llvmlite_conda", "llvmlite_wheels", "download_conda", "download_wheels"}
-PLATFORMS = [
-    "linux-64",
-    "linux-aarch64",
-    "osx-64",
-    "osx-arm64",
-    "win-64",
-]
+
+# Supported steps
+ALL_STEPS = {
+    "llvmdev",
+    "llvmlite_conda",
+    "numba_conda",
+    "download_llvmlite_conda",
+    "download_numba_conda",
+}
+PLATFORMS = ["osx-64", "osx-arm64", "win-64", "linux-aarch64", "linux-64"]
+
+STATE_FILE = Path(".ci_state.json")
 
 
 def load_state() -> Dict[str, Dict[str, Any]]:
-    """Load CI run state from disk, or return empty state."""
+    """Load build state from disk, or return empty state."""
     if STATE_FILE.exists():
         return json.loads(STATE_FILE.read_text())
     return {}
 
 
 def save_state(state: Dict[str, Dict[str, Any]]) -> None:
-    """Persist CI run state to disk."""
+    """Persist build state to disk."""
     STATE_FILE.write_text(json.dumps(state, indent=2))
 
 
-def get_conclusion(run_id: str, repository: str) -> str:
-    """Retrieve the conclusion of a completed run."""
+def get_workflow_conclusion(workflow_run_id: str, repo: str) -> str:
+    """Retrieve the conclusion of a completed GitHub Actions run."""
     output = subprocess.check_output([
-        "gh", "run", "view", run_id,
-        "--repo", repository,
+        "gh", "run", "view", workflow_run_id,
+        "--repo", repo,
         "--json", "conclusion"
     ])
-    return json.loads(output).get("conclusion", "")
+    data = json.loads(output)
+    return data.get("conclusion", "")
 
 
-def run_or_reuse(
-    workflow: str,
-    inputs: Dict[str, str],
-    key: str,
+def dispatch_or_reuse(
+    workflow_filename: str,
+    workflow_inputs: Dict[str, str],
+    step_key: str,
     state: Dict[str, Dict[str, Any]],
     repo: str,
     branch: str
 ) -> int:
     """
-    Reuse a successful or in-progress run, or dispatch a new one.
-    Returns the run ID.
+    Reuse an existing successful or in-progress run, or dispatch a new one.
+    Returns the workflow run ID.
     """
-    entry     = state.get(key, {})
-    run_id    = entry.get("run_id")
-    completed = entry.get("completed", False)
-    conclusion= entry.get("conclusion", "")
+    state_entry     = state.get(step_key, {})
+    existing_run_id = state_entry.get("run_id")
+    completed       = state_entry.get("completed", False)
+    last_conclusion = state_entry.get("conclusion", "")
 
-    # 1) If we already have a successful run, keep using it.
-    if run_id and completed and conclusion == "success":
-        logging.info(f"Reusing successful {key} run {run_id}")
-        return run_id
+    if existing_run_id and completed and last_conclusion == "success":
+        logging.info(f"Reusing successful {step_key} run {existing_run_id} on {repo}")
+        return existing_run_id
 
-    # 2) If it's still in progress, just resume watching it.
-    if run_id and not completed:
-        logging.info(f"Resuming in-progress {key} run {run_id}")
-        return run_id
+    if existing_run_id and not completed:
+        logging.info(f"Resuming in-progress {step_key} run {existing_run_id} on {repo}")
+        return existing_run_id
 
-    # 3) Otherwise, trigger a fresh run...
-    cmd = ["gh", "workflow", "run", workflow, "--repo", repo, "--ref", branch]
-    for name, value in inputs.items():
+    # Dispatch a new run
+    cmd = ["gh", "workflow", "run", workflow_filename, "--repo", repo, "--ref", branch]
+    for name, value in workflow_inputs.items():
         cmd.extend(["-f", f"{name}={value}"])
+    logging.info(f"Dispatching {workflow_filename} for {step_key} on {repo} with inputs {workflow_inputs}")
+    dispatch_output = subprocess.check_output(cmd, text=True)
 
-    logging.info(f"Dispatching {workflow} for {key} with inputs {inputs}")
-    # Capture the CLI output so we can grab the new run ID from its URL:
-    dispatch_output = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
-
-    # Extract <run-id> from the URL: https://github.com/.../actions/runs/<run-id>
-    match = re.search(r"/actions/runs/(\d+)", dispatch_output)
-    if match:
-        new_run_id = int(match.group(1))
+    # Parse run ID from dispatch URL
+    match_obj = re.search(r"/actions/runs/(\d+)", dispatch_output)
+    if match_obj:
+        new_run_id = int(match_obj.group(1))
     else:
-        # Fallback: poll the run list for the most recent one on this branch
-        logging.info(f"Waiting for new {key} run to register via list query…")
-        new_run_id = None
-        for _ in range(10):
-            runs_output = subprocess.check_output([
-                "gh", "run", "list",
-                "--repo", repo,
-                "--workflow", workflow,
-                "--branch", branch,
-                "--limit", "1",
-                "--json", "databaseId",
-            ])
-            runs = json.loads(runs_output)
-            if runs:
-                new_run_id = int(runs[0]["databaseId"])
-                break
-            time.sleep(2)
-
-        if new_run_id is None:
-            logging.error(f"Timeout waiting for {key} run to appear.")
+        # Sleep for 30s then fetch latest run
+        logging.info(f"Sleeping for 30 seconds to allow {step_key} run on {repo} to register...")
+        time.sleep(30)
+        list_output = subprocess.check_output([
+            "gh", "run", "list",
+            "--repo", repo,
+            "--workflow", workflow_filename,
+            "--branch", branch,
+            "--limit", "1",
+            "--json", "databaseId"
+        ])
+        runs = json.loads(list_output)
+        if not runs:
+            logging.error(f"No runs found for {step_key} on {repo} after waiting.")
             sys.exit(1)
+        new_run_id = int(runs[0]["databaseId"])
 
-    # Record and persist the fresh run
-    state[key] = {"run_id": new_run_id, "completed": False}
+    state[step_key] = {"run_id": new_run_id, "completed": False}
     save_state(state)
-    logging.info(f"Recorded new {key} run {new_run_id}")
-
+    logging.info(f"Recorded new {step_key} run {new_run_id} on {repo}")
     return new_run_id
 
-def wait_completion(
-    key: str,
+
+def wait_for_success(
+    step_key: str,
     state: Dict[str, Dict[str, Any]],
     repo: str
 ) -> None:
     """
-    Wait for the specified run to complete successfully.
+    Block until the specified workflow run completes successfully.
     """
-    entry = state.get(key, {})
-    run_id = entry.get("run_id")
+    state_entry     = state.get(step_key, {})
+    workflow_run_id = state_entry.get("run_id")
 
-    if not run_id:
-        logging.warning(f"No run_id for {key}, skipping wait.")
+    if not workflow_run_id:
+        logging.warning(f"No run_id for {step_key}, skipping wait.")
+        return
+    if state_entry.get("completed") and state_entry.get("conclusion") == "success":
         return
 
-    if entry.get("completed") and entry.get("conclusion") == "success":
-        logging.info(f"{key} already succeeded (run {run_id}).")
-        return
-
-    logging.info(f"Watching run {run_id} for {key}...")
     try:
-        subprocess.run(["gh", "run", "watch", str(run_id), "--repo", repo], check=True)
+        subprocess.run([
+            "gh", "run", "watch", str(workflow_run_id), "--repo", repo
+        ], check=True)
     except KeyboardInterrupt:
         logging.info("Interrupted by user during watch; exiting gracefully.")
         sys.exit(0)
 
-    conclusion = get_conclusion(str(run_id), repo)
+    conclusion = get_workflow_conclusion(str(workflow_run_id), repo)
     if conclusion != "success":
-        logging.error(f"Run {run_id} for {key} concluded with '{conclusion}'. Aborting.")
+        logging.error(
+            f"Run {workflow_run_id} for {step_key} on {repo} ended with '{conclusion}'. Aborting."
+        )
         sys.exit(1)
 
-    entry["completed"] = True
-    entry["conclusion"] = conclusion
+    state_entry["completed"]  = True
+    state_entry["conclusion"] = conclusion
     save_state(state)
-    logging.info(f"Run {run_id} for {key} succeeded.")
 
-def download(
-    key: str,
+
+def download_artifacts(
+    step_key: str,
     state: Dict[str, Dict[str, Any]],
     repo: str,
-    dest: Path
+    destination: Path
 ) -> None:
-    """Download artifacts for a successful run."""
-    entry = state.get(key, {})
-    run_id = entry.get("run_id")
+    """
+    Download artifacts from a successful workflow run.
+    """
+    state_entry     = state.get(step_key, {})
+    workflow_run_id = state_entry.get("run_id")
 
-    if not run_id or entry.get("conclusion") != "success":
-        logging.error(f"Cannot download {key}, no successful run found.")
+    if not workflow_run_id or state_entry.get("conclusion") != "success":
+        logging.error(f"Cannot download {step_key}: no successful run on {repo}.")
         sys.exit(1)
 
-    dest.mkdir(parents=True, exist_ok=True)
-    logging.info(f"Downloading {key} artifacts from run {run_id} into {dest}")
+    destination.mkdir(parents=True, exist_ok=True)
+    logging.info(
+        f"Downloading {step_key} artifacts from run {workflow_run_id} on {repo} to {destination}"
+    )
     subprocess.run([
-        "gh", "run", "download", str(run_id),
+        "gh", "run", "download", str(workflow_run_id),
         "--repo", repo,
-        "--dir", str(dest)
+        "--dir", str(destination)
     ], check=True)
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-
     parser = argparse.ArgumentParser(
-        description="Manage llvmlite CI workflows selectively or end-to-end."
+        description="Manage conda-only CI workflows for llvmlite & numba"
     )
     parser.add_argument(
-        "--repo", default=DEFAULT_REPO,
-        help="GitHub repository in 'owner/name' format."
+        "--llvmlite-branch", default=DEFAULT_BRANCH,
+        help="Git branch or tag for llvmlite workflows"
     )
     parser.add_argument(
-        "--branch", default=DEFAULT_BRANCH,
-        help="Git branch or tag to run workflows on."
+        "--numba-branch", default=DEFAULT_BRANCH,
+        help="Git branch or tag for numba workflows"
     )
     parser.add_argument(
         "--steps", default="all",
-        help=(
-            "Comma-separated steps: llvmdev, llvmlite_conda, "
-            "llvmlite_wheels, download_conda, download_wheels, or all."
-        )
+        help=",".join(sorted(ALL_STEPS)) + ",all"
     )
     parser.add_argument(
-        "--reuse-run",
-        action="append",
-        help="STEP:RUN_ID to seed state manually"
+        "--reuse-run", action="append",
+        help="STEP:RUN_ID to seed the state manually"
     )
-
     args = parser.parse_args()
 
     if not os.getenv("GH_TOKEN"):
         logging.error("GH_TOKEN environment variable is required.")
         sys.exit(1)
 
-    requested: Set[str] = {step.strip() for step in args.steps.split(',')}
-    if "all" in requested:
-        requested = ALL_STEPS.copy()
+    requested_steps: Set[str] = {s.strip() for s in args.steps.split(',')}
+    if "all" in requested_steps:
+        requested_steps = ALL_STEPS.copy()
 
     state = load_state()
 
-        # Apply manual run IDs if provided
+    # Seed manual runs
     if args.reuse_run:
-        for item in args.reuse_run:
+        for seed in args.reuse_run:
             try:
-                step, rid = item.split(":")
-                state[step] = {"run_id": int(rid), "completed": False}
-                logging.info(f"Manually seeded {step} with run ID {rid}")
+                seed_step, seed_id = seed.split(":")
+                state[seed_step] = {"run_id": int(seed_id), "completed": False}
+                logging.info(f"Seeded {seed_step} with run {seed_id}")
             except ValueError:
-                logging.error(f"Invalid --reuse-run format: {item}")
+                logging.error(f"Invalid --reuse-run format: {seed}")
                 sys.exit(1)
-        # Persist manual seeds immediately
         save_state(state)
-        logging.info(f"State updated with manual reuse-run entries: {args.reuse_run}")
 
-    # Step: llvmdev build
-    if "llvmdev" in requested:
-        run_or_reuse(
+    # Step: llvmdev on LLVMLITE_REPO
+    if "llvmdev" in requested_steps:
+        dispatch_or_reuse(
             "llvmdev_build.yml",
             {"platform": "all", "recipe": "all"},
             "llvmdev",
             state,
-            args.repo,
-            args.branch
+            LLVMLITE_REPO,
+            args.llvmlite_branch
         )
-        wait_completion("llvmdev", state, args.repo)
+        wait_for_success("llvmdev", state, LLVMLITE_REPO)
 
-    # Step: llvmlite conda build
-    if "llvmlite_conda" in requested:
-        cond_inputs: Dict[str, str] = {"platform": "all"}
+    # Step: llvmlite_conda on LLVMLITE_REPO
+    if "llvmlite_conda" in requested_steps:
+        ll_inputs: Dict[str, str] = {"platform": "all"}
         llvm_entry = state.get("llvmdev", {})
         if llvm_entry.get("run_id") and llvm_entry.get("conclusion") == "success":
-            cond_inputs["llvmdev_run_id"] = str(llvm_entry["run_id"])
-            logging.info("Using local llvmdev run for conda builder.")
-        else:
-            logging.info("No successful local llvmdev run; using published llvmdev packages for conda build.")
-
-        run_or_reuse(
+            ll_inputs["llvmdev_run_id"] = str(llvm_entry["run_id"])
+            logging.info("Using local llvmdev run for llvmlite_conda")
+        dispatch_or_reuse(
             "llvmlite_conda_builder.yml",
-            cond_inputs,
+            ll_inputs,
             "llvmlite_conda",
             state,
-            args.repo,
-            args.branch
+            LLVMLITE_REPO,
+            args.llvmlite_branch
         )
-        wait_completion("llvmlite_conda", state, args.repo)
+        wait_for_success("llvmlite_conda", state, LLVMLITE_REPO)
 
-    # Step: llvmlite wheels build
-    if "llvmlite_wheels" in requested:
-        wheel_inputs: Dict[str, str] = {}
-        llvm_entry = state.get("llvmdev", {})
-        if llvm_entry.get("run_id") and llvm_entry.get("conclusion") == "success":
-            wheel_inputs["llvmdev_run_id"] = str(llvm_entry["run_id"])
-            logging.info("Using local llvmdev run for wheel builders.")
-        else:
-            logging.info("No successful local llvmdev run; using published llvmdev_for_wheel packages for wheels.")
+            # Step: numba_conda on NUMBA_REPO
+    if "numba_conda" in requested_steps:
+        # Prepare inputs using the llvmlite_conda run
+        numba_inputs: Dict[str, str] = {}
+        llconda_entry = state.get("llvmlite_conda", {})
+        if llconda_entry.get("run_id") and llconda_entry.get("conclusion") == "success":
+            numba_inputs["llvmlite_run_id"] = str(llconda_entry["run_id"])
+            logging.info("Using llvmlite_conda run for numba_conda: %s", llconda_entry["run_id"])
 
-        for plat in PLATFORMS:
-            wf_file = f"llvmlite_{plat}_wheel_builder.yml"
-            key = f"wheel_{plat}"
-            run_or_reuse(
-                wf_file,
-                wheel_inputs,
-                key,
+        # Dispatch all platform-specific numba conda workflows
+        dispatched_steps: List[str] = []
+        for platform_name in PLATFORMS:
+            # Map linux-aarch64 to linux-arm64
+            workflow_platform = "linux-arm64" if platform_name == "linux-aarch64" else platform_name
+            # Windows builder vs other platforms
+            if platform_name == "win-64":
+                workflow_file = f"numba_{workflow_platform}_builder.yml"
+            else:
+                workflow_file = f"numba_{workflow_platform}_conda_builder.yml"
+            step_key = f"numba_conda_{platform_name}"
+            dispatch_or_reuse(
+                workflow_file,
+                numba_inputs,
+                step_key,
                 state,
-                args.repo,
-                args.branch
+                NUMBA_REPO,
+                args.numba_branch
             )
-            wait_completion(key, state, args.repo)
+            dispatched_steps.append(step_key)
 
-    # Step: download conda artifacts
-    if "download_conda" in requested:
-        download(
+        # After triggering all, monitor each to completion
+        for step_key in dispatched_steps:
+            wait_for_success(step_key, state, NUMBA_REPO)
+
+    # Step: download llvmlite conda artifacts
+    if "download_llvmlite_conda" in requested_steps:
+        download_artifacts(
             "llvmlite_conda",
             state,
-            args.repo,
+            LLVMLITE_REPO,
             Path("artifacts/llvmlite_conda")
         )
 
-    # Step: download wheel artifacts
-    if "download_wheels" in requested:
-        for key in state:
-            if key.startswith("wheel_"):
-                download(
-                    key,
+    # Step: download numba conda artifacts
+    if "download_numba_conda" in requested_steps:
+        for step_key in state:
+            if step_key.startswith("numba_conda_"):
+                download_artifacts(
+                    step_key,
                     state,
-                    args.repo,
-                    Path("artifacts/llvmlite_wheels") / key
+                    NUMBA_REPO,
+                    Path("artifacts/numba_conda") / step_key
                 )
 
-
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        logging.info("Interrupted by user; exiting.")
+        sys.exit(0)
