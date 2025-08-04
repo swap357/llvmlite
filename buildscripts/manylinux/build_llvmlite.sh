@@ -22,6 +22,7 @@ conda activate $envname
 # Install llvmdev
 
 if [ -n "$LLVMDEV_PKG_PATH" ] && [ -d "$LLVMDEV_PKG_PATH" ]; then
+
     echo "=== Verifying llvmdev packages (container) ==="
     echo "LLVMDEV_PKG_PATH: $LLVMDEV_PKG_PATH"
     echo "Directory exists: $(test -d "$LLVMDEV_PKG_PATH" && echo "YES" || echo "NO")"
