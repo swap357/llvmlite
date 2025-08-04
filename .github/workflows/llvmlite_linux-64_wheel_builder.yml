@@ -76,15 +76,26 @@ jobs:
           # Define Miniconda installer URL
           echo "MINICONDA_FILE=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" >> "$GITHUB_ENV"
 
+      - name: Verify llvmdev packages (host)
+        run: |
+          echo "=== Verifying llvmdev packages on host ==="
+          if [ -d "llvmdev_conda_packages" ]; then
+            echo "llvmdev_conda_packages directory exists"
+            echo "Contents:"
+            ls -la llvmdev_conda_packages/
+            echo "Package files:"
+            find llvmdev_conda_packages/ -name "*.conda" -o -name "*.tar.bz2" | head -10
+          else
+            echo "llvmdev_conda_packages directory does not exist"
+          fi
+
       - name: Build wheel in manylinux container
         run: |
-          LLVMDEV_ARTIFACT_PATH="/root/llvmlite/llvmdev_conda_packages"
-
           # Run the build script in manylinux container using the existing script
           docker run --rm \
             -v "$(pwd):/root/llvmlite" \
             quay.io/pypa/${{ env.MANYLINUX_IMAGE }} \
-            bash -c "git config --global --add safe.directory /root/llvmlite && /root/llvmlite/buildscripts/manylinux/build_llvmlite.sh ${{ env.MINICONDA_FILE }} ${{ env.PYTHON_PATH }} $LLVMDEV_ARTIFACT_PATH"
+            bash -c "git config --global --add safe.directory /root/llvmlite && /root/llvmlite/buildscripts/manylinux/build_llvmlite.sh ${{ env.MINICONDA_FILE }} ${{ env.PYTHON_PATH }} /root/llvmlite/llvmdev_conda_packages"
 
           # Create wheelhouse directory for artifact upload
           mkdir -p wheelhouse

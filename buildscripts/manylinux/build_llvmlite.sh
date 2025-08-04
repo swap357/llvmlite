@@ -22,7 +22,23 @@ conda activate $envname
 # Install llvmdev
 
 if [ -n "$LLVMDEV_PKG_PATH" ] && [ -d "$LLVMDEV_PKG_PATH" ]; then
-    conda install -y -c "file://$LLVMDEV_PKG_PATH" llvmdev --no-deps
+    echo "=== Verifying llvmdev packages (container) ==="
+    echo "LLVMDEV_PKG_PATH: $LLVMDEV_PKG_PATH"
+    echo "Directory exists: $(test -d "$LLVMDEV_PKG_PATH" && echo "YES" || echo "NO")"
+    echo "Contents:"
+    ls -la "$LLVMDEV_PKG_PATH"
+    echo "Package files:"
+    find "$LLVMDEV_PKG_PATH" -name "*.conda" -o -name "*.tar.bz2" | head -10
+
+    # Find and install the llvmdev package directly
+    LLVMDEV_PKG=$(find "$LLVMDEV_PKG_PATH" -name "llvmdev*.conda" -o -name "llvmdev*.tar.bz2" | head -1)
+    if [ -n "$LLVMDEV_PKG" ]; then
+        echo "Installing package: $LLVMDEV_PKG"
+        conda install -y "$LLVMDEV_PKG" --no-deps
+    else
+        echo "ERROR: No llvmdev package found in $LLVMDEV_PKG_PATH"
+        exit 1
+    fi
 else
     if [[ $(uname -m) == "aarch64" ]] ; then
         conda install -y numba/label/manylinux_2_28::llvmdev --no-deps
