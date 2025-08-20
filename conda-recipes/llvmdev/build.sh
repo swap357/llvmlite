@@ -38,6 +38,7 @@ fi
 
 cmake -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
       -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_VERBOSE_MAKEFILE=ON \
       -DCMAKE_LIBRARY_PATH="${PREFIX}" \
       -DLLVM_ENABLE_LIBEDIT=OFF \
       -DLLVM_ENABLE_LIBXML2=OFF \
@@ -75,9 +76,9 @@ cmake -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
       ../llvm
 
 
-ninja -j${CPU_COUNT}
+ninja -v -j${CPU_COUNT}
 
-ninja install
+ninja -v install
 
 if [[ "${target_platform}" == "linux-64" || "${target_platform}" == "osx-64" ]]; then
     export TEST_CPU_FLAG="-mcpu=haswell"
