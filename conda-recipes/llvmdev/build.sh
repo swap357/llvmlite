@@ -13,7 +13,7 @@ cd build
 
 export CPU_COUNT=4
 
-CMAKE_ARGS="${CMAKE_ARGS} -DLLVM_ENABLE_PROJECTS=lld;libunwind;compiler-rt"
+CMAKE_ARGS="${CMAKE_ARGS} -DLLVM_ENABLE_PROJECTS=lld;compiler-rt"
 
 if [[ "$target_platform" == "linux-64" ]]; then
   CMAKE_ARGS="${CMAKE_ARGS} -DLLVM_USE_INTEL_JITEVENTS=ON"
@@ -38,10 +38,12 @@ fi
 
 cmake -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
       -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_VERBOSE_MAKEFILE=ON \
       -DCMAKE_LIBRARY_PATH="${PREFIX}" \
       -DLLVM_ENABLE_LIBEDIT=OFF \
       -DLLVM_ENABLE_LIBXML2=OFF \
-      -DLLVM_ENABLE_RTTI=ON \
+      -DLLVM_ENABLE_RTTI=OFF \
+      -DLLVM_ENABLE_ASSERTIONS=ON \
       -DLLVM_ENABLE_TERMINFO=OFF \
       -DLLVM_INCLUDE_BENCHMARKS=OFF \
       -DLLVM_INCLUDE_DOCS=OFF \
@@ -74,9 +76,9 @@ cmake -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
       ../llvm
 
 
-ninja -j${CPU_COUNT}
+ninja -v -j${CPU_COUNT}
 
-ninja install
+ninja -v install
 
 if [[ "${target_platform}" == "linux-64" || "${target_platform}" == "osx-64" ]]; then
     export TEST_CPU_FLAG="-mcpu=haswell"
