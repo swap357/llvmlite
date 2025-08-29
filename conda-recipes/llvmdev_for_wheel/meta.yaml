@@ -25,7 +25,6 @@ source:
 
 build:
   number: {{ build_number }}
-  string: "manylinux"
   script_env:
     - CFLAGS        [linux]
     - CXXFLAGS      [linux]
