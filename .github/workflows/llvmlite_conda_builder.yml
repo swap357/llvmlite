@@ -107,6 +107,8 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build llvmlite conda package
+        env:
+          ANACONDA_ROCKET_ENABLE_PY314: ${{ matrix.python-version == '3.14' && 'yes' || '' }}
         run: |
           if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
               LLVMDEV_CHANNEL="file:///${{ github.workspace }}/llvmdev_conda_packages"
@@ -153,4 +155,6 @@ jobs:
         run: conda install conda-build
 
       - name: Run tests
+        env:
+          ANACONDA_ROCKET_ENABLE_PY314: ${{ matrix.python-version == '3.14' && 'yes' || '' }}
         run: conda build --test ${{ matrix.platform }}/llvmlite*.conda
