@@ -70,7 +70,7 @@ jobs:
     name: ${{ matrix.platform }}-py${{ matrix.python-version }}-build
     runs-on: ${{ matrix.runner }}
     env:
-      EXTRA_CHANNELS: ${{ matrix.python-version == '3.14' && '-c adtesting/label/py314' || '' }}
+      EXTRA_CHANNELS: ${{ matrix.python-version == '3.14' && '-c ad-testing/label/py314' || '' }}
     defaults:
       run:
         shell: bash -elx {0}
@@ -136,7 +136,7 @@ jobs:
     needs: [check, build]
     runs-on: ${{ matrix.runner }}
     env:
-      EXTRA_CHANNELS: ${{ matrix.python-version == '3.14' && '-c adtesting/label/py314' || '' }}
+      EXTRA_CHANNELS: ${{ matrix.python-version == '3.14' && '-c ad-testing/label/py314' || '' }}
     defaults:
       run:
         shell: bash -elx {0}
