@@ -202,8 +202,13 @@ jobs:
             exit 1
           fi
 
-          echo "Installing lief for distribution testing"
-          "${PYTHON_PATH}" -m pip install -v lief
+          # Install lief for distribution testing (skip for Python 3.14 due to compatibility issues)
+          if [ "${{ matrix.python-version }}" != "3.14" ]; then
+            echo "Installing lief for distribution testing"
+            "${PYTHON_PATH}" -m pip install -v lief
+          else
+            echo "Skipping lief installation for Python 3.14 (compatibility issues)"
+          fi
 
           echo "Using wheel: $whl"
           "${PYTHON_PATH}" -m pip install -v "$whl"
