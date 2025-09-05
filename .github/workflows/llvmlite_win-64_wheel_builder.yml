@@ -163,8 +163,14 @@ jobs:
           # Upgrade pip and install wheel
           python -m pip install --upgrade pip wheel
 
-          echo "Installing lief for distribution testing"
-          python -m pip install -v lief
+          # Skip lief installation for Python 3.14 as it fails to build/install
+          # This condition can be removed once lief supports Python 3.14
+          if [ "${{ matrix.python-version }}" != "3.14" ]; then
+            echo "Installing lief for distribution testing"
+            python -m pip install -v lief
+          else
+            echo "skipping lief installation for Python 3.14"
+          fi
 
           # Install wheel and run tests
           cd dist
