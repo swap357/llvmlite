@@ -169,8 +169,16 @@ jobs:
           PYTHON_PATH=$(which "python${{ matrix.python-version }}")
           "$PYTHON_PATH" -m venv .venv && source .venv/bin/activate
           python -m pip install --upgrade pip wheel
-          echo "Installing lief for distribution testing"
-          python -m pip install -v lief
+
+          # Skip lief installation for Python 3.14 as it fails to build/install
+          # This condition can be removed once lief supports Python 3.14
+          if [ "${{ matrix.python-version }}" != "3.14" ]; then
+            echo "Installing lief for distribution testing"
+            python -m pip install -v lief
+          else
+            echo "skipping lief installation for Python 3.14"
+          fi
+
           cd dist && python -m pip install -v ./*.whl
           DYLIB_PATH=$(find "$(python -c "import llvmlite; print(llvmlite.__path__[0])")" -name "libllvmlite.dylib")
           echo "Found dylib at: $DYLIB_PATH" && otool -L "$DYLIB_PATH"
