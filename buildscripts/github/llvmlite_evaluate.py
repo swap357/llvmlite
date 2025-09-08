@@ -29,6 +29,12 @@ for platform in platforms:
             "python-version": python_version,
         })
 
+# Exclude Python 3.14 for osx-64
+default_include = [
+    item for item in default_include
+    if not (item["platform"] == "osx-64" and item["python-version"] == "3.14")
+]
+
 print(
     "Deciding what to do based on event: "
     f"'{event}', label: '{label}', inputs: '{inputs}'"
