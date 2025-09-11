@@ -117,6 +117,7 @@ jobs:
           fi
           CONDA_CHANNEL_DIR="conda_channel_dir"
           mkdir $CONDA_CHANNEL_DIR
+          # shellcheck disable=SC2086
           conda build --debug -c "$LLVMDEV_CHANNEL" ${EXTRA_CHANNELS} -c defaults --python=${{ matrix.python-version }} conda-recipes/llvmlite --output-folder="${CONDA_CHANNEL_DIR}" --no-test
 
       - name: Upload llvmlite conda package
@@ -157,4 +158,6 @@ jobs:
         run: conda install conda-build
 
       - name: Run tests
-        run: conda build --test ${EXTRA_CHANNELS} ${{ matrix.platform }}/llvmlite*.conda
+        run: |
+          # shellcheck disable=SC2086
+          conda build --test ${EXTRA_CHANNELS} ${{ matrix.platform }}/llvmlite*.conda
