@@ -75,7 +75,7 @@ jobs:
           else
               CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
           fi
-          conda install -c "$CHAN" -c defaults llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}
+          conda install -c defaults "$CHAN"::llvmdev="${{ env.FALLBACK_LLVMDEV_VERSION }}"
           conda install -c defaults cmake libxml2
           python -m pip install --upgrade pip build
 
