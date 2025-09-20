@@ -29,7 +29,7 @@ env:
 jobs:
   osx-64-build:
     name: osx-64-build
-    runs-on: macos-13
+    runs-on: macos-15-intel
     defaults:
       run:
         shell: bash -elx {0}
@@ -112,7 +112,7 @@ jobs:
   osx-64-validate:
     name: osx-64-validate
     needs: osx-64-build
-    runs-on: macos-13
+    runs-on: macos-15-intel
     defaults:
       run:
         shell: bash -elx {0}
@@ -196,7 +196,7 @@ jobs:
     name: osx-64-upload
     needs: osx-64-test
     if: github.event_name == 'workflow_dispatch' && inputs.upload_wheel_to_anaconda
-    runs-on: macos-13
+    runs-on: macos-15-intel
     defaults:
       run:
         shell: bash -elx {0}
