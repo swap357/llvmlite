@@ -29,7 +29,7 @@ env:
 jobs:
   osx-64-build:
     name: osx-64-build
-    runs-on: macos-13
+    runs-on: macos-15-intel
     defaults:
       run:
         shell: bash -elx {0}
@@ -81,9 +81,6 @@ jobs:
           mkdir -p "$CONDA_PREFIX/lib/hide_unwind"
           mv "$CONDA_PREFIX/lib/libunwind"*.dylib "$CONDA_PREFIX/lib/hide_unwind/" 2>/dev/null || true
 
-      - name: Select Xcode 14.1
-        run: sudo xcode-select -s /Applications/Xcode_14.1.0.app
-
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "10.15"
@@ -112,7 +109,7 @@ jobs:
   osx-64-validate:
     name: osx-64-validate
     needs: osx-64-build
-    runs-on: macos-13
+    runs-on: macos-15-intel
     defaults:
       run:
         shell: bash -elx {0}
@@ -196,7 +193,7 @@ jobs:
     name: osx-64-upload
     needs: osx-64-test
     if: github.event_name == 'workflow_dispatch' && inputs.upload_wheel_to_anaconda
-    runs-on: macos-13
+    runs-on: macos-15-intel
     defaults:
       run:
         shell: bash -elx {0}
