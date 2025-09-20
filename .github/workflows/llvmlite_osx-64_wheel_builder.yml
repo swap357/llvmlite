@@ -81,9 +81,6 @@ jobs:
           mkdir -p "$CONDA_PREFIX/lib/hide_unwind"
           mv "$CONDA_PREFIX/lib/libunwind"*.dylib "$CONDA_PREFIX/lib/hide_unwind/" 2>/dev/null || true
 
-      - name: Select Xcode 14.1
-        run: sudo xcode-select -s /Applications/Xcode_14.1.0.app
-
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: "10.15"
