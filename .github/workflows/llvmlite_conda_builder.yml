@@ -112,7 +112,7 @@ jobs:
           CONDA_CHANNEL_DIR="conda_channel_dir"
           mkdir $CONDA_CHANNEL_DIR
           if [ -n "${EXTRA_CHANNELS}" ]; then
-            extra_args=("${EXTRA_CHANNELS}")
+            extra_args=(${EXTRA_CHANNELS})
           else
             extra_args=()
           fi
@@ -158,7 +158,7 @@ jobs:
       - name: Run tests
         run: |
           if [ -n "${EXTRA_CHANNELS}" ]; then
-            extra_args=("${EXTRA_CHANNELS}")
+            extra_args=(${EXTRA_CHANNELS})
           else
             extra_args=()
           fi
