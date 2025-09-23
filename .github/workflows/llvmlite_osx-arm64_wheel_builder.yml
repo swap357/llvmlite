@@ -58,7 +58,10 @@ jobs:
           allow-prereleases: true
 
       - name: Set Python Path
-        run: echo "PYTHON_PATH=$(which python)" >> $GITHUB_ENV
+        run: |
+          echo "matrix python version: ${{ matrix.python-version }}"
+          echo "python version: $(python --version)"
+          echo "python path check: $(which python)"
 
       - name: Download llvmdev Artifact
         if: ${{ inputs.llvmdev_run_id != '' }}
