@@ -38,12 +38,19 @@ jobs:
           - os: ubuntu-latest
             cibw_archs: x86_64
             cibw_platform: linux
+            platform_label: linux-64
+          - os: ubuntu-24.04-arm
+            cibw_archs: aarch64
+            cibw_platform: linux
+            platform_label: linux-aarch64
           - os: windows-2025
             cibw_archs: x64
             cibw_platform: windows
+            platform_label: win-64
           - os: macos-14
             cibw_archs: x86_64,arm64
             cibw_platform: macos
+            platform_label: osx-arm64
 
     steps:
       - name: Checkout
@@ -115,7 +122,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: llvmlite-wheels-${{ matrix.cibw_platform }}-${{ matrix.cibw_archs }}
+          name: llvmlite-wheels-${{ matrix.platform_label }}
           path: wheelhouse/*.whl
           compression-level: 0
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
@@ -128,12 +135,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - platform: linux
-            archs: x86_64
-          - platform: windows
-            archs: x64
-          - platform: macos
-            archs: x86_64,arm64
+          - platform_label: linux-64
+          - platform_label: linux-aarch64
+          - platform_label: win-64
+          - platform_label: osx-arm64
 
     steps:
       - name: Checkout
@@ -150,7 +155,7 @@ jobs:
       - name: Download wheels
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
-          name: llvmlite-wheels-${{ matrix.platform }}-${{ matrix.archs }}
+          name: llvmlite-wheels-${{ matrix.platform_label }}
           path: wheelhouse
 
       - name: Validate wheels
@@ -169,14 +174,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            platform: linux
-            archs: x86_64
+            platform_label: linux-64
+          - os: ubuntu-24.04-arm
+            platform_label: linux-aarch64
           - os: windows-2025
-            platform: windows
-            archs: x64
+            platform_label: win-64
           - os: macos-14
-            platform: macos
-            archs: x86_64,arm64
+            platform_label: osx-arm64
 
     steps:
       - name: Checkout
@@ -190,7 +194,7 @@ jobs:
       - name: Download wheels
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
-          name: llvmlite-wheels-${{ matrix.platform }}-${{ matrix.archs }}
+          name: llvmlite-wheels-${{ matrix.platform_label }}
           path: wheelhouse
 
       - name: Install and test wheels
@@ -220,12 +224,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - platform: linux
-            archs: x86_64
-          - platform: windows
-            archs: x64
-          - platform: macos
-            archs: x86_64,arm64
+          - platform_label: linux-64
+          - platform_label: linux-aarch64
+          - platform_label: win-64
+          - platform_label: osx-arm64
 
     steps:
       - name: Set up Python
@@ -239,7 +241,7 @@ jobs:
       - name: Download wheels
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
-          name: llvmlite-wheels-${{ matrix.platform }}-${{ matrix.archs }}
+          name: llvmlite-wheels-${{ matrix.platform_label }}
           path: wheelhouse
 
       - name: Upload wheels to Anaconda Cloud
