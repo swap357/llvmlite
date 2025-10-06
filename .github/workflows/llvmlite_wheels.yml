@@ -132,7 +132,7 @@ jobs:
 
           CIBW_BEFORE_BUILD: |
             # Install llvmdev dependency (only for Windows and macOS)
-            if [ "${{ matrix.platform_label }}" = "windows" ] || [ "${{ matrix.platform_label }}" = "macos" ]; then
+            if [ "${{ matrix.platform_label }}" = "win-64" ] || [ "${{ matrix.platform_label }}" = "osx-arm64" ]; then
               # Install miniconda using existing script
               bash ${{ github.workspace }}/buildscripts/incremental/install_miniconda.sh
 
@@ -145,7 +145,7 @@ jobs:
               source ~/.bashrc || true
 
               if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
-                if [ "${{ matrix.cibw_platform }}" = "windows" ]; then
+                if [ "${{ matrix.platform_label }}" = "win-64" ]; then
                   CHAN="file:///${{ github.workspace }}/llvmdev_conda_packages"
                 else
                   CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
@@ -157,9 +157,9 @@ jobs:
               fi
 
               # Platform-specific additional dependencies
-              if [ "${{ matrix.cibw_platform }}" = "windows" ]; then
+              if [ "${{ matrix.platform_label }}" = "win-64" ]; then
                 conda install -c defaults cmake libxml2
-              elif [ "${{ matrix.cibw_platform }}" = "macos" ]; then
+              elif [ "${{ matrix.platform_label }}" = "osx-arm64" ]; then
                 # Hide libunwind to prevent linking issues
                 mkdir -p "$CONDA_PREFIX/lib/hide_unwind"
                 mv "$CONDA_PREFIX/lib/libunwind"*.dylib "$CONDA_PREFIX/lib/hide_unwind/" 2>/dev/null || true
@@ -167,7 +167,7 @@ jobs:
             fi
 
           CIBW_REPAIR_WHEEL_COMMAND: |
-            if [ "${{ matrix.cibw_platform }}" = "windows" ]; then
+            if [ "${{ matrix.platform_label }}" = "win-64" ]; then
               python -m pip install delvewheel
               python -m delvewheel repair --analyze-existing -w {dest_dir} {wheel}
             fi
