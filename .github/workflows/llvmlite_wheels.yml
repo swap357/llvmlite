@@ -179,7 +179,20 @@ jobs:
             LLVMLITE_PACKAGE_FORMAT=wheel
             MACOSX_DEPLOYMENT_TARGET=11.0
             LDFLAGS=-v -Wl,-rpath,/usr/lib
-            CMAKE_PREFIX_PATH=$HOME/miniconda3/lib/cmake/llvm/
+            CMAKE_PREFIX_PATH=/root/miniconda3/lib/cmake/llvm/
+
+          CIBW_ENVIRONMENT_LINUX: |
+            LLVMLITE_PACKAGE_FORMAT=wheel
+            CMAKE_PREFIX_PATH=/root/miniconda3/lib/cmake/llvm/
+
+          CIBW_ENVIRONMENT_MACOS: |
+            LLVMLITE_PACKAGE_FORMAT=wheel
+            MACOSX_DEPLOYMENT_TARGET=11.0
+            CMAKE_PREFIX_PATH=/Users/runner/miniconda3/lib/cmake/llvm/
+
+          CIBW_ENVIRONMENT_WINDOWS: |
+            LLVMLITE_PACKAGE_FORMAT=wheel
+            CMAKE_PREFIX_PATH=C:\miniconda\lib\cmake\llvm\
 
       - uses: actions/upload-artifact@v4
         with:
