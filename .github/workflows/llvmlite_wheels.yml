@@ -143,7 +143,10 @@ jobs:
             ln -sf $(realpath $HOME/miniconda3/include) /opt/llvm/include
             # Also create the lib/cmake/llvm structure that CMake expects
             mkdir -p /opt/llvm/lib/cmake/llvm
-            ln -sf $(realpath $HOME/miniconda3/lib/cmake/llvm/*) /opt/llvm/lib/cmake/llvm/
+            # Create symlinks for individual files, ignoring "same file" errors
+            for file in $(realpath $HOME/miniconda3/lib/cmake/llvm/*); do
+              ln -sf "$file" /opt/llvm/lib/cmake/llvm/ 2>/dev/null || true
+            done
             export CMAKE_PREFIX_PATH="/opt/llvm"
 
           CIBW_BEFORE_BUILD_MACOS: |
@@ -172,7 +175,10 @@ jobs:
             sudo ln -sf $(realpath $HOME/miniconda3/include) /opt/llvm/include
             # Also create the lib/cmake/llvm structure that CMake expects
             sudo mkdir -p /opt/llvm/lib/cmake/llvm
-            sudo ln -sf $(realpath $HOME/miniconda3/lib/cmake/llvm/*) /opt/llvm/lib/cmake/llvm/
+            # Create symlinks for individual files, ignoring "same file" errors
+            for file in $(realpath $HOME/miniconda3/lib/cmake/llvm/*); do
+              sudo ln -sf "$file" /opt/llvm/lib/cmake/llvm/ 2>/dev/null || true
+            done
             export CMAKE_PREFIX_PATH="/opt/llvm"
 
           CIBW_BEFORE_BUILD_WINDOWS: |
