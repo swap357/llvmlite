@@ -129,13 +129,17 @@ jobs:
           CIBW_ARCHS_MACOS: "auto"
           CIBW_CONTAINER_ENGINE: "docker"
           CIBW_BUILD_VERBOSITY: "1"
-          CIBW_USE_CONDA: "1"
+
+          CIBW_BEFORE_ALL: |
+            # Install miniconda using existing script
+            bash ${{ github.workspace }}/buildscripts/incremental/install_miniconda.sh
+            echo "$HOME/miniconda3/bin" >> $GITHUB_PATH
 
           CIBW_BEFORE_BUILD: |
-            # Install llvmdev - cibuildwheel handles conda setup
+            # Install llvmdev using conda
             if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
               # Use local artifact if available
-              if [ "${{ matrix.platform_label }}" = "win-64" ]; then
+              if [[ "$RUNNER_OS" == "Windows" ]]; then
                 CHAN="file:///${{ github.workspace }}/llvmdev_conda_packages"
               else
                 CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
