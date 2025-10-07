@@ -129,20 +129,12 @@ jobs:
           CIBW_ARCHS_MACOS: "auto"
           CIBW_CONTAINER_ENGINE: "docker"
           CIBW_BUILD_VERBOSITY: "1"
+          CIBW_USE_CONDA: "1"
 
           CIBW_BEFORE_BUILD: |
-            # Install miniconda using existing script
-            bash ${{ github.workspace }}/buildscripts/incremental/install_miniconda.sh
-
-            # Set up conda environment
-            export PATH="$HOME/miniconda3/bin:$PATH"
-            export CONDA_PREFIX="$HOME/miniconda3"
-
-            # Initialize conda
-            conda init bash
-            source ~/.bashrc || true
-
+            # Install llvmdev - cibuildwheel handles conda setup
             if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
+              # Use local artifact if available
               if [ "${{ matrix.platform_label }}" = "win-64" ]; then
                 CHAN="file:///${{ github.workspace }}/llvmdev_conda_packages"
               else
@@ -150,17 +142,8 @@ jobs:
               fi
               conda install -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}"
             else
-              CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
-              conda install -c defaults "${CHAN}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}"
-            fi
-
-            # Platform-specific additional dependencies
-            if [ "${{ matrix.platform_label }}" = "win-64" ]; then
-              conda install -c defaults cmake libxml2
-            elif [ "${{ matrix.platform_label }}" = "osx-arm64" ]; then
-              # Hide libunwind to prevent linking issues
-              mkdir -p "$CONDA_PREFIX/lib/hide_unwind"
-              mv "$CONDA_PREFIX/lib/libunwind"*.dylib "$CONDA_PREFIX/lib/hide_unwind/" 2>/dev/null || true
+              # Use conda channel
+              conda install -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}"
             fi
 
           CIBW_REPAIR_WHEEL_COMMAND: |
