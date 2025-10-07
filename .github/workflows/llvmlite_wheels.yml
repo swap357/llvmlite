@@ -90,7 +90,6 @@ jobs:
             curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
             bash miniconda.sh -b -f -p $HOME/miniconda3
             $HOME/miniconda3/bin/conda init bash
-            source $HOME/.bashrc
             export PATH="$HOME/miniconda3/bin:$PATH"
             export CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
 
@@ -100,7 +99,6 @@ jobs:
             curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
             bash miniconda.sh -b -f -p $HOME/miniconda3
             $HOME/miniconda3/bin/conda init bash
-            source $HOME/.bashrc
             export PATH="$HOME/miniconda3/bin:$PATH"
             export CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
 
@@ -114,32 +112,35 @@ jobs:
           # Build prerequisites (llvmlite requires llvmdev present at build time)
           CIBW_BEFORE_BUILD_LINUX: |
             set -eux
-            # Ensure conda is available
             export PATH="$HOME/miniconda3/bin:$PATH"
-            source $HOME/.bashrc
+            # Activate conda base environment
+            source $HOME/miniconda3/etc/profile.d/conda.sh
+            conda activate base
             python -m pip install -U pip setuptools wheel
 
             # Install llvmdev using conda
             if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
               CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
-              $HOME/miniconda3/bin/conda install -y -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+              conda install -y -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             else
-              $HOME/miniconda3/bin/conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+              conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             fi
 
           CIBW_BEFORE_BUILD_MACOS: |
             set -eux
-            # Ensure conda is available
+            # Ensure conda is available and activated
             export PATH="$HOME/miniconda3/bin:$PATH"
-            source $HOME/.bashrc
+            # Activate conda base environment
+            source $HOME/miniconda3/etc/profile.d/conda.sh
+            conda activate base
             python -m pip install -U pip setuptools wheel
 
             # Install llvmdev using conda
             if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
               CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
-              $HOME/miniconda3/bin/conda install -y -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+              conda install -y -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             else
-              $HOME/miniconda3/bin/conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+              conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             fi
 
           CIBW_BEFORE_BUILD_WINDOWS: |
