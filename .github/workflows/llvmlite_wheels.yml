@@ -71,13 +71,6 @@ jobs:
           repository: ${{ github.repository }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3.2.0
-        with:
-          conda-remove-defaults: true
-          auto-update-conda: true
-          auto-activate-base: true
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.0
         env:
@@ -90,25 +83,69 @@ jobs:
           CIBW_BUILD_VERBOSITY: "1"
           CIBW_BUILD: "${{ matrix.build.python_tag }}-*"
 
+          # Install conda inside cibuildwheel environment (based on manylinux approach)
+          CIBW_BEFORE_ALL_LINUX: |
+            set -eux
+            # Download and install miniconda
+            curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+            bash miniconda.sh -b -f -p $HOME/miniconda3
+            source $HOME/miniconda3/bin/activate base
+            export PATH="$HOME/miniconda3/bin:$PATH"
+            export CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
+
+          CIBW_BEFORE_ALL_MACOS: |
+            set -eux
+            # Download and install miniconda
+            curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+            bash miniconda.sh -b -f -p $HOME/miniconda3
+            source $HOME/miniconda3/bin/activate base
+            export PATH="$HOME/miniconda3/bin:$PATH"
+            export CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
+
+          CIBW_BEFORE_ALL_WINDOWS: |
+            curl -L -o miniconda.exe https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
+            ./miniconda.exe /InstallationType=JustMe /RegisterPython=0 /S /D=C:\miniconda
+            set PATH=C:\miniconda;C:\miniconda\Scripts;%PATH%
+            set CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
+
           # Build prerequisites (llvmlite requires llvmdev present at build time)
-          CIBW_BEFORE_BUILD: |
+          CIBW_BEFORE_BUILD_LINUX: |
             set -eux
             python -m pip install -U pip setuptools wheel
             python -m pip install numpy==${{ matrix.build.numpy_build }}
-            
+
             # Install llvmdev using conda
             if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
-              # Use local artifact if available
-              if [[ "$RUNNER_OS" == "Windows" ]]; then
-                CHAN="file:///${{ github.workspace }}/llvmdev_conda_packages"
-              else
-                CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
-              fi
-              conda install -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}"
+              CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
+              conda install -y -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             else
-              # Use conda channel
-              conda install -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}"
+              conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             fi
+
+          CIBW_BEFORE_BUILD_MACOS: |
+            set -eux
+            python -m pip install -U pip setuptools wheel
+            python -m pip install numpy==${{ matrix.build.numpy_build }}
+
+            # Install llvmdev using conda
+            if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
+              CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
+              conda install -y -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+            else
+              conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+            fi
+
+          CIBW_BEFORE_BUILD_WINDOWS: |
+            python -m pip install -U pip setuptools wheel
+            python -m pip install numpy==${{ matrix.build.numpy_build }}
+
+            # Install llvmdev using conda
+            if "%{{ inputs.llvmdev_run_id }}" neq "" (
+              set CHAN=file:///%{{ github.workspace }}/llvmdev_conda_packages
+              conda install -y -c defaults -c "%CHAN%" "llvmdev=%{{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+            ) else (
+              conda install -y -c defaults "%{{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=%{{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+            )
 
           # Windows repair: use delvewheel
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: |
