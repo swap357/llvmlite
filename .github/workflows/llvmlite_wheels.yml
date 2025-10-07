@@ -112,7 +112,6 @@ jobs:
           CIBW_BEFORE_BUILD_LINUX: |
             set -eux
             python -m pip install -U pip setuptools wheel
-            python -m pip install numpy==${{ matrix.build.numpy_build }}
 
             # Install llvmdev using conda
             if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
@@ -125,7 +124,6 @@ jobs:
           CIBW_BEFORE_BUILD_MACOS: |
             set -eux
             python -m pip install -U pip setuptools wheel
-            python -m pip install numpy==${{ matrix.build.numpy_build }}
 
             # Install llvmdev using conda
             if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
@@ -137,7 +135,6 @@ jobs:
 
           CIBW_BEFORE_BUILD_WINDOWS: |
             python -m pip install -U pip setuptools wheel
-            python -m pip install numpy==${{ matrix.build.numpy_build }}
 
             # Install llvmdev using conda
             if "%{{ inputs.llvmdev_run_id }}" neq "" (
