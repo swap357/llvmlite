@@ -137,10 +137,14 @@ jobs:
             
             # Create symlinks to make LLVM accessible to the build
             mkdir -p /opt/llvm
-            ln -sf $HOME/miniconda3/lib/cmake/llvm /opt/llvm/cmake
-            ln -sf $HOME/miniconda3/lib /opt/llvm/lib
-            ln -sf $HOME/miniconda3/include /opt/llvm/include
-            export CMAKE_PREFIX_PATH="/opt/llvm/cmake"
+            # Create proper symlinks with absolute paths
+            ln -sf $(realpath $HOME/miniconda3/lib/cmake/llvm) /opt/llvm/cmake
+            ln -sf $(realpath $HOME/miniconda3/lib) /opt/llvm/lib
+            ln -sf $(realpath $HOME/miniconda3/include) /opt/llvm/include
+            # Also create the lib/cmake/llvm structure that CMake expects
+            mkdir -p /opt/llvm/lib/cmake/llvm
+            ln -sf $(realpath $HOME/miniconda3/lib/cmake/llvm/*) /opt/llvm/lib/cmake/llvm/
+            export CMAKE_PREFIX_PATH="/opt/llvm"
 
           CIBW_BEFORE_BUILD_MACOS: |
             set -eux
@@ -162,10 +166,14 @@ jobs:
             
             # Create symlinks to make LLVM accessible to the build
             sudo mkdir -p /opt/llvm
-            sudo ln -sf $HOME/miniconda3/lib/cmake/llvm /opt/llvm/cmake
-            sudo ln -sf $HOME/miniconda3/lib /opt/llvm/lib
-            sudo ln -sf $HOME/miniconda3/include /opt/llvm/include
-            export CMAKE_PREFIX_PATH="/opt/llvm/cmake"
+            # Create proper symlinks with absolute paths
+            sudo ln -sf $(realpath $HOME/miniconda3/lib/cmake/llvm) /opt/llvm/cmake
+            sudo ln -sf $(realpath $HOME/miniconda3/lib) /opt/llvm/lib
+            sudo ln -sf $(realpath $HOME/miniconda3/include) /opt/llvm/include
+            # Also create the lib/cmake/llvm structure that CMake expects
+            sudo mkdir -p /opt/llvm/lib/cmake/llvm
+            sudo ln -sf $(realpath $HOME/miniconda3/lib/cmake/llvm/*) /opt/llvm/lib/cmake/llvm/
+            export CMAKE_PREFIX_PATH="/opt/llvm"
 
           CIBW_BEFORE_BUILD_WINDOWS: |
             # Ensure conda is available
@@ -195,12 +203,12 @@ jobs:
 
           CIBW_ENVIRONMENT_LINUX: |
             LLVMLITE_PACKAGE_FORMAT=wheel
-            CMAKE_PREFIX_PATH=/opt/llvm/cmake
+            CMAKE_PREFIX_PATH=/opt/llvm
 
           CIBW_ENVIRONMENT_MACOS: |
             LLVMLITE_PACKAGE_FORMAT=wheel
             MACOSX_DEPLOYMENT_TARGET=11.0
-            CMAKE_PREFIX_PATH=/opt/llvm/cmake
+            CMAKE_PREFIX_PATH=/opt/llvm
 
           CIBW_ENVIRONMENT_WINDOWS: |
             LLVMLITE_PACKAGE_FORMAT=wheel
