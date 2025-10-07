@@ -86,8 +86,12 @@ jobs:
           # Install conda inside cibuildwheel environment (based on manylinux approach)
           CIBW_BEFORE_ALL_LINUX: |
             set -eux
-            # Download and install miniconda
-            curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+            # Download and install miniconda (architecture-specific)
+            if [[ "$(uname -m)" == "aarch64" ]]; then
+              curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh
+            else
+              curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+            fi
             bash miniconda.sh -b -f -p $HOME/miniconda3
             $HOME/miniconda3/bin/conda init bash
             export PATH="$HOME/miniconda3/bin:$PATH"
@@ -95,8 +99,12 @@ jobs:
 
           CIBW_BEFORE_ALL_MACOS: |
             set -eux
-            # Download and install miniconda
-            curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+            # Download and install miniconda (architecture-specific)
+            if [[ "$(uname -m)" == "arm64" ]]; then
+              curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh
+            else
+              curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+            fi
             bash miniconda.sh -b -f -p $HOME/miniconda3
             $HOME/miniconda3/bin/conda init bash
             export PATH="$HOME/miniconda3/bin:$PATH"
