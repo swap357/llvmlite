@@ -1,12 +1,12 @@
-name: llvmlite_wheels
+name: Build wheels
 
 on:
+  push:
+    branches:
+    - main
+    tags:
+    - v*
   pull_request:
-    paths:
-      - .github/workflows/llvmlite_wheels.yml
-      - 'llvmlite/**'
-      - 'ffi/**'
-      - 'setup.py'
   workflow_dispatch:
     inputs:
       llvmdev_run_id:
@@ -29,113 +29,73 @@ env:
   ARTIFACT_RETENTION_DAYS: 7
 
 jobs:
+  load-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      build-matrix-json: ${{ steps.load_matrix_json.outputs.build-matrix-json }}
+      test-matrix-json: ${{ steps.load_matrix_json.outputs.test-matrix-json }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: load_matrix_json
+        name: Load Workflow Matrix JSON
+        run: |
+          BUILD_MATRIX_JSON=$(jq -c .wheel_build_matrix .github/workflows/wheel_workflow_matrix.json)
+          TEST_MATRIX_JSON=$(jq -c '.wheel_test_matrix | map(. + {"python_tag": ("cp" + (."python-version" | split(".") | join("")))})' .github/workflows/wheel_workflow_matrix.json)
+          echo "build-matrix-json=$BUILD_MATRIX_JSON" >> $GITHUB_OUTPUT
+          echo "test-matrix-json=$TEST_MATRIX_JSON" >> $GITHUB_OUTPUT
+
   build_wheels:
-    name: build ${{ matrix.platform_label }} (python ${{ matrix.python-version }})
+    name: build ${{ matrix.os }} (py ${{ matrix.build['python-version'] }})
+    needs: load-matrix
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            platform_label: linux-64
-            python-version: "3.10"
-          - os: ubuntu-latest
-            platform_label: linux-64
-            python-version: "3.11"
-          - os: ubuntu-latest
-            platform_label: linux-64
-            python-version: "3.12"
-          - os: ubuntu-latest
-            platform_label: linux-64
-            python-version: "3.13"
-          - os: ubuntu-latest
-            platform_label: linux-64
-            python-version: "3.14"
-          - os: ubuntu-24.04-arm
-            platform_label: linux-aarch64
-            python-version: "3.10"
-          - os: ubuntu-24.04-arm
-            platform_label: linux-aarch64
-            python-version: "3.11"
-          - os: ubuntu-24.04-arm
-            platform_label: linux-aarch64
-            python-version: "3.12"
-          - os: ubuntu-24.04-arm
-            platform_label: linux-aarch64
-            python-version: "3.13"
-          - os: ubuntu-24.04-arm
-            platform_label: linux-aarch64
-            python-version: "3.14"
-          - os: windows-2025
-            platform_label: win-64
-            python-version: "3.10"
-          - os: windows-2025
-            platform_label: win-64
-            python-version: "3.11"
-          - os: windows-2025
-            platform_label: win-64
-            python-version: "3.12"
-          - os: windows-2025
-            platform_label: win-64
-            python-version: "3.13"
-          - os: windows-2025
-            platform_label: win-64
-            python-version: "3.14"
-          - os: macos-14
-            platform_label: osx-arm64
-            python-version: "3.10"
-          - os: macos-14
-            platform_label: osx-arm64
-            python-version: "3.11"
-          - os: macos-14
-            platform_label: osx-arm64
-            python-version: "3.12"
-          - os: macos-14
-            platform_label: osx-arm64
-            python-version: "3.13"
-          - os: macos-14
-            platform_label: osx-arm64
-            python-version: "3.14"
+        os: [ubuntu-latest, macos-14, ubuntu-22.04-arm, windows-2025]
+        build: ${{ fromJson(needs.load-matrix.outputs.build-matrix-json) }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@v5
         with:
+          submodules: recursive
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Download llvmdev Artifact
         if: ${{ inputs.llvmdev_run_id != '' }}
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@v5
         with:
-          name: llvmdev_for_wheel_${{ matrix.platform_label }}
+          name: llvmdev_for_wheel_${{ matrix.os }}
           path: llvmdev_conda_packages
           run-id: ${{ inputs.llvmdev_run_id }}
           repository: ${{ github.repository }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Python
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3.2.0
         with:
-          python-version: '3.12'
-
-      - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel
+          conda-remove-defaults: true
+          auto-update-conda: true
+          auto-activate-base: true
 
       - name: Build wheels
+        uses: pypa/cibuildwheel@v3.2.0
         env:
-          CIBW_BUILD: cp310-* cp311-* cp312-* cp313-* cp314-*
+          # Keep most settings in pyproject.toml; minimally wire in build+test here.
           CIBW_SKIP: "pp* *-musllinux_*"
           CIBW_PRERELEASE_PYTHONS: "1"
           CIBW_ARCHS_LINUX: "auto"
           CIBW_ARCHS_MACOS: "auto"
           CIBW_CONTAINER_ENGINE: "docker"
           CIBW_BUILD_VERBOSITY: "1"
+          CIBW_BUILD: "${{ matrix.build.python_tag }}-*"
 
-          CIBW_BEFORE_ALL: |
-            # Install miniconda using existing script
-            bash ${{ github.workspace }}/buildscripts/incremental/install_miniconda.sh
-            echo "$HOME/miniconda3/bin" >> $GITHUB_PATH
-
+          # Build prerequisites (llvmlite requires llvmdev present at build time)
           CIBW_BEFORE_BUILD: |
+            set -eux
+            python -m pip install -U pip setuptools wheel
+            python -m pip install numpy==${{ matrix.build.numpy_build }}
+            
             # Install llvmdev using conda
             if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
               # Use local artifact if available
@@ -150,254 +110,86 @@ jobs:
               conda install -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}"
             fi
 
-          CIBW_REPAIR_WHEEL_COMMAND: |
-            if [ "${{ matrix.platform_label }}" = "win-64" ]; then
-              python -m pip install delvewheel
-              python -m delvewheel repair --analyze-existing -w {dest_dir} {wheel}
-            fi
+          # Windows repair: use delvewheel
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: |
+            python -m pip install delvewheel
+            python -m delvewheel repair --analyze-existing -w {dest_dir} {wheel}
+
+          # Environment variables
           CIBW_ENVIRONMENT: |
             LLVMLITE_PACKAGE_FORMAT=wheel
             MACOSX_DEPLOYMENT_TARGET=11.0
             LDFLAGS=-v -Wl,-rpath,/usr/lib
-        run: python -m cibuildwheel --output-dir wheelhouse
 
-      - name: Upload wheels
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@v4
         with:
-          name: llvmlite-wheels-${{ matrix.platform_label }}-py${{ matrix.python-version }}
-          path: wheelhouse/*.whl
+          name: wheels-${{ matrix.os }}-${{ matrix.build.python_tag }}
+          path: ./wheelhouse/*.whl
           compression-level: 0
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: error
 
-  validate_wheels:
-    name: validate ${{ matrix.platform_label }} (python ${{ matrix.python-version }})
-    needs: build_wheels
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - platform_label: linux-64
-            python-version: "3.10"
-          - platform_label: linux-64
-            python-version: "3.11"
-          - platform_label: linux-64
-            python-version: "3.12"
-          - platform_label: linux-64
-            python-version: "3.13"
-          - platform_label: linux-64
-            python-version: "3.14"
-          - platform_label: linux-aarch64
-            python-version: "3.10"
-          - platform_label: linux-aarch64
-            python-version: "3.11"
-          - platform_label: linux-aarch64
-            python-version: "3.12"
-          - platform_label: linux-aarch64
-            python-version: "3.13"
-          - platform_label: linux-aarch64
-            python-version: "3.14"
-          - platform_label: win-64
-            python-version: "3.10"
-          - platform_label: win-64
-            python-version: "3.11"
-          - platform_label: win-64
-            python-version: "3.12"
-          - platform_label: win-64
-            python-version: "3.13"
-          - platform_label: win-64
-            python-version: "3.14"
-          - platform_label: osx-arm64
-            python-version: "3.10"
-          - platform_label: osx-arm64
-            python-version: "3.11"
-          - platform_label: osx-arm64
-            python-version: "3.12"
-          - platform_label: osx-arm64
-            python-version: "3.13"
-          - platform_label: osx-arm64
-            python-version: "3.14"
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
-      - name: Set up Python
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
-        with:
-          python-version: '3.12'
-
-      - name: Install validation dependencies
-        run: python -m pip install wheel twine
-
-      - name: Download wheels
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
-        with:
-          name: llvmlite-wheels-${{ matrix.platform_label }}-py${{ matrix.python-version }}
-          path: wheelhouse
-
-      - name: Validate wheels
-        run: |
-          cd wheelhouse
-          for wheel in *.whl; do
-            echo "Validating $wheel"
-            twine check "$wheel"
-          done
-
   test_wheels:
-    name: test ${{ matrix.platform_label }} (python ${{ matrix.python-version }})
-    needs: build_wheels
+    name: test ${{ matrix.os }} (py ${{ matrix.test.python-version }})
+    needs: [load-matrix, build_wheels]
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            platform_label: linux-64
-            python-version: "3.10"
-          - os: ubuntu-latest
-            platform_label: linux-64
-            python-version: "3.11"
-          - os: ubuntu-latest
-            platform_label: linux-64
-            python-version: "3.12"
-          - os: ubuntu-latest
-            platform_label: linux-64
-            python-version: "3.13"
-          - os: ubuntu-latest
-            platform_label: linux-64
-            python-version: "3.14"
-          - os: ubuntu-24.04-arm
-            platform_label: linux-aarch64
-            python-version: "3.10"
-          - os: ubuntu-24.04-arm
-            platform_label: linux-aarch64
-            python-version: "3.11"
-          - os: ubuntu-24.04-arm
-            platform_label: linux-aarch64
-            python-version: "3.12"
-          - os: ubuntu-24.04-arm
-            platform_label: linux-aarch64
-            python-version: "3.13"
-          - os: ubuntu-24.04-arm
-            platform_label: linux-aarch64
-            python-version: "3.14"
-          - os: windows-2025
-            platform_label: win-64
-            python-version: "3.10"
-          - os: windows-2025
-            platform_label: win-64
-            python-version: "3.11"
-          - os: windows-2025
-            platform_label: win-64
-            python-version: "3.12"
-          - os: windows-2025
-            platform_label: win-64
-            python-version: "3.13"
-          - os: windows-2025
-            platform_label: win-64
-            python-version: "3.14"
-          - os: macos-14
-            platform_label: osx-arm64
-            python-version: "3.10"
-          - os: macos-14
-            platform_label: osx-arm64
-            python-version: "3.11"
-          - os: macos-14
-            platform_label: osx-arm64
-            python-version: "3.12"
-          - os: macos-14
-            platform_label: osx-arm64
-            python-version: "3.13"
-          - os: macos-14
-            platform_label: osx-arm64
-            python-version: "3.14"
+        os: [ubuntu-latest, macos-14, ubuntu-22.04-arm, windows-2025]
+        test: ${{ fromJson(needs.load-matrix.outputs.test-matrix-json) }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
-      - name: Set up Python
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ matrix.test['python-version'] }}
+          allow-prereleases: true
 
       - name: Download wheels
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@v4
         with:
-          name: llvmlite-wheels-${{ matrix.platform_label }}-py${{ matrix.python-version }}
-          path: wheelhouse
+          name: wheels-${{ matrix.os }}-${{ matrix.test.python_tag }}
+          path: dist
 
-      - name: Install and test wheels
-        env:
-          LLVMLITE_DIST_TEST: "1"
+      - name: Install and test wheel
         run: |
-          # Upgrade pip and install wheel
-          python -m pip install --upgrade pip wheel
+          PY=$(python -c 'import sys; print(sys.executable)')
+          $PY -m pip install -U pip
+          $PY -m pip install numpy==${{ matrix.test.numpy_test }} pytest lief
+          $PY -m pip install dist/*.whl
+          $PY -m llvmlite.tests
 
-          # Install test dependencies
-          python -m pip install lief
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
-          # Install and test each wheel
-          cd wheelhouse
-          for wheel in *.whl; do
-            echo "Testing wheel: $wheel"
-            python -m pip install "$wheel"
-            python -m llvmlite.tests
-            python -m pip uninstall -y llvmlite
-          done
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+          compression-level: 0
+          if-no-files-found: error
 
   upload_wheels:
     name: Upload wheels to Anaconda Cloud
-    needs: [validate_wheels, test_wheels]
+    needs: [load-matrix, test_wheels]
     if: github.event_name == 'workflow_dispatch' && inputs.upload_wheel_to_anaconda
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - platform_label: linux-64
-            python-version: "3.10"
-          - platform_label: linux-64
-            python-version: "3.11"
-          - platform_label: linux-64
-            python-version: "3.12"
-          - platform_label: linux-64
-            python-version: "3.13"
-          - platform_label: linux-64
-            python-version: "3.14"
-          - platform_label: linux-aarch64
-            python-version: "3.10"
-          - platform_label: linux-aarch64
-            python-version: "3.11"
-          - platform_label: linux-aarch64
-            python-version: "3.12"
-          - platform_label: linux-aarch64
-            python-version: "3.13"
-          - platform_label: linux-aarch64
-            python-version: "3.14"
-          - platform_label: win-64
-            python-version: "3.10"
-          - platform_label: win-64
-            python-version: "3.11"
-          - platform_label: win-64
-            python-version: "3.12"
-          - platform_label: win-64
-            python-version: "3.13"
-          - platform_label: win-64
-            python-version: "3.14"
-          - platform_label: osx-arm64
-            python-version: "3.10"
-          - platform_label: osx-arm64
-            python-version: "3.11"
-          - platform_label: osx-arm64
-            python-version: "3.12"
-          - platform_label: osx-arm64
-            python-version: "3.13"
-          - platform_label: osx-arm64
-            python-version: "3.14"
+        os: [ubuntu-latest, macos-14, ubuntu-22.04-arm, windows-2025]
+        test: ${{ fromJson(needs.load-matrix.outputs.test-matrix-json) }}
 
     steps:
       - name: Set up Python
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
@@ -405,9 +197,9 @@ jobs:
         run: python -m pip install anaconda-client
 
       - name: Download wheels
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@v4
         with:
-          name: llvmlite-wheels-${{ matrix.platform_label }}-py${{ matrix.python-version }}
+          name: wheels-${{ matrix.os }}-${{ matrix.test.python_tag }}
           path: wheelhouse
 
       - name: Upload wheels to Anaconda Cloud
