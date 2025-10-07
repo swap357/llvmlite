@@ -179,6 +179,7 @@ jobs:
             LLVMLITE_PACKAGE_FORMAT=wheel
             MACOSX_DEPLOYMENT_TARGET=11.0
             LDFLAGS=-v -Wl,-rpath,/usr/lib
+            CMAKE_PREFIX_PATH=$HOME/miniconda3/lib/cmake/llvm/
 
       - uses: actions/upload-artifact@v4
         with:
