@@ -135,18 +135,17 @@ jobs:
               conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             fi
             
-            # Create symlinks to make LLVM accessible to the build
-            mkdir -p /opt/llvm
-            # Create proper symlinks with absolute paths
-            ln -sf $(realpath $HOME/miniconda3/lib/cmake/llvm) /opt/llvm/cmake
-            ln -sf $(realpath $HOME/miniconda3/lib) /opt/llvm/lib
-            ln -sf $(realpath $HOME/miniconda3/include) /opt/llvm/include
-            # Also create the lib/cmake/llvm structure that CMake expects
+            # Copy LLVM files to make them accessible to the build
             mkdir -p /opt/llvm/lib/cmake/llvm
-            # Create symlinks for individual files, ignoring "same file" errors
-            for file in $(realpath $HOME/miniconda3/lib/cmake/llvm/*); do
-              ln -sf "$file" /opt/llvm/lib/cmake/llvm/ 2>/dev/null || true
-            done
+            mkdir -p /opt/llvm/lib
+            mkdir -p /opt/llvm/include
+            # Copy CMake files
+            cp -r $HOME/miniconda3/lib/cmake/llvm/* /opt/llvm/lib/cmake/llvm/
+            # Copy libraries
+            cp -r $HOME/miniconda3/lib/*.so* /opt/llvm/lib/ 2>/dev/null || true
+            cp -r $HOME/miniconda3/lib/*.a /opt/llvm/lib/ 2>/dev/null || true
+            # Copy headers
+            cp -r $HOME/miniconda3/include/* /opt/llvm/include/ 2>/dev/null || true
             export CMAKE_PREFIX_PATH="/opt/llvm"
 
           CIBW_BEFORE_BUILD_MACOS: |
@@ -167,18 +166,17 @@ jobs:
               conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             fi
             
-            # Create symlinks to make LLVM accessible to the build
-            sudo mkdir -p /opt/llvm
-            # Create proper symlinks with absolute paths
-            sudo ln -sf $(realpath $HOME/miniconda3/lib/cmake/llvm) /opt/llvm/cmake
-            sudo ln -sf $(realpath $HOME/miniconda3/lib) /opt/llvm/lib
-            sudo ln -sf $(realpath $HOME/miniconda3/include) /opt/llvm/include
-            # Also create the lib/cmake/llvm structure that CMake expects
+            # Copy LLVM files to make them accessible to the build
             sudo mkdir -p /opt/llvm/lib/cmake/llvm
-            # Create symlinks for individual files, ignoring "same file" errors
-            for file in $(realpath $HOME/miniconda3/lib/cmake/llvm/*); do
-              sudo ln -sf "$file" /opt/llvm/lib/cmake/llvm/ 2>/dev/null || true
-            done
+            sudo mkdir -p /opt/llvm/lib
+            sudo mkdir -p /opt/llvm/include
+            # Copy CMake files
+            sudo cp -r $HOME/miniconda3/lib/cmake/llvm/* /opt/llvm/lib/cmake/llvm/
+            # Copy libraries
+            sudo cp -r $HOME/miniconda3/lib/*.dylib /opt/llvm/lib/ 2>/dev/null || true
+            sudo cp -r $HOME/miniconda3/lib/*.a /opt/llvm/lib/ 2>/dev/null || true
+            # Copy headers
+            sudo cp -r $HOME/miniconda3/include/* /opt/llvm/include/ 2>/dev/null || true
             export CMAKE_PREFIX_PATH="/opt/llvm"
 
           CIBW_BEFORE_BUILD_WINDOWS: |
