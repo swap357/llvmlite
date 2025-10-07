@@ -89,7 +89,8 @@ jobs:
             # Download and install miniconda
             curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
             bash miniconda.sh -b -f -p $HOME/miniconda3
-            source $HOME/miniconda3/bin/activate base
+            $HOME/miniconda3/bin/conda init bash
+            source $HOME/.bashrc
             export PATH="$HOME/miniconda3/bin:$PATH"
             export CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
 
@@ -98,50 +99,60 @@ jobs:
             # Download and install miniconda
             curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
             bash miniconda.sh -b -f -p $HOME/miniconda3
-            source $HOME/miniconda3/bin/activate base
+            $HOME/miniconda3/bin/conda init bash
+            source $HOME/.bashrc
             export PATH="$HOME/miniconda3/bin:$PATH"
             export CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
 
           CIBW_BEFORE_ALL_WINDOWS: |
             curl -L -o miniconda.exe https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
             ./miniconda.exe /InstallationType=JustMe /RegisterPython=0 /S /D=C:\miniconda
+            C:\miniconda\Scripts\conda.exe init cmd.exe
             set PATH=C:\miniconda;C:\miniconda\Scripts;%PATH%
             set CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
 
           # Build prerequisites (llvmlite requires llvmdev present at build time)
           CIBW_BEFORE_BUILD_LINUX: |
             set -eux
+            # Ensure conda is available
+            export PATH="$HOME/miniconda3/bin:$PATH"
+            source $HOME/.bashrc
             python -m pip install -U pip setuptools wheel
 
             # Install llvmdev using conda
             if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
               CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
-              conda install -y -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+              $HOME/miniconda3/bin/conda install -y -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             else
-              conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+              $HOME/miniconda3/bin/conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             fi
 
           CIBW_BEFORE_BUILD_MACOS: |
             set -eux
+            # Ensure conda is available
+            export PATH="$HOME/miniconda3/bin:$PATH"
+            source $HOME/.bashrc
             python -m pip install -U pip setuptools wheel
 
             # Install llvmdev using conda
             if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
               CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
-              conda install -y -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+              $HOME/miniconda3/bin/conda install -y -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             else
-              conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+              $HOME/miniconda3/bin/conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             fi
 
           CIBW_BEFORE_BUILD_WINDOWS: |
+            # Ensure conda is available
+            set PATH=C:\miniconda;C:\miniconda\Scripts;%PATH%
             python -m pip install -U pip setuptools wheel
 
             # Install llvmdev using conda
             if "%{{ inputs.llvmdev_run_id }}" neq "" (
               set CHAN=file:///%{{ github.workspace }}/llvmdev_conda_packages
-              conda install -y -c defaults -c "%CHAN%" "llvmdev=%{{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+              C:\miniconda\Scripts\conda.exe install -y -c defaults -c "%CHAN%" "llvmdev=%{{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             ) else (
-              conda install -y -c defaults "%{{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=%{{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
+              C:\miniconda\Scripts\conda.exe install -y -c defaults "%{{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=%{{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
             )
 
           # Windows repair: use delvewheel
