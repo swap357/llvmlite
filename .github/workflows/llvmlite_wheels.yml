@@ -80,6 +80,7 @@ jobs:
       - name: Install llvmdev
         run: |
           conda install numba/label/llvm20-wheel::llvmdev=20
+          echo "CONDA_PREFIX=$CONDA_PREFIX" >> $GITHUB_ENV
 
       - name: Find LLVMConfig.cmake and set CMAKE_PREFIX_PATH
         run: |
