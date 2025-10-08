@@ -71,6 +71,16 @@ jobs:
           repository: ${{ github.repository }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3.2.0
+        with:
+          auto-update-conda: true
+          auto-activate-base: true
+
+      - name: Install llvmdev
+        run: |
+          conda install numba/label/llvm20-wheel::llvmdev=20
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.0
         env:
@@ -83,116 +93,6 @@ jobs:
           CIBW_BUILD_VERBOSITY: "1"
           CIBW_BUILD: "${{ matrix.build.python_tag }}-*"
 
-          # Install conda inside cibuildwheel environment (based on manylinux approach)
-          CIBW_BEFORE_ALL_LINUX: |
-            set -eux
-            # Download and install miniconda (architecture-specific)
-            if [[ "$(uname -m)" == "aarch64" ]]; then
-              curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh
-            else
-              curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-            fi
-            bash miniconda.sh -b -f -p $HOME/miniconda3
-            $HOME/miniconda3/bin/conda init bash
-            export PATH="$HOME/miniconda3/bin:$PATH"
-            export CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
-
-          CIBW_BEFORE_ALL_MACOS: |
-            set -eux
-            # Download and install miniconda (architecture-specific)
-            if [[ "$(uname -m)" == "arm64" ]]; then
-              curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh
-            else
-              curl -L -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
-            fi
-            bash miniconda.sh -b -f -p $HOME/miniconda3
-            $HOME/miniconda3/bin/conda init bash
-            export PATH="$HOME/miniconda3/bin:$PATH"
-            export CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
-
-          CIBW_BEFORE_ALL_WINDOWS: |
-            curl -L -o miniconda.exe https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
-            ./miniconda.exe /InstallationType=JustMe /RegisterPython=0 /S /D=C:\miniconda
-            C:\miniconda\Scripts\conda.exe init cmd.exe
-            set PATH=C:\miniconda;C:\miniconda\Scripts;%PATH%
-            set CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
-
-          # Build prerequisites (llvmlite requires llvmdev present at build time)
-          CIBW_BEFORE_BUILD_LINUX: |
-            set -eux
-            export PATH="$HOME/miniconda3/bin:$PATH"
-            export CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
-            # Activate conda base environment
-            source $HOME/miniconda3/etc/profile.d/conda.sh
-            conda activate base
-            python -m pip install -U pip wheel
-
-            # Install llvmdev using conda
-            if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
-              CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
-              conda install -y -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
-            else
-              conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
-            fi
-            
-            # Copy LLVM files to make them accessible to the build
-            mkdir -p /opt/llvm/lib/cmake/llvm
-            mkdir -p /opt/llvm/lib
-            mkdir -p /opt/llvm/include
-            # Copy CMake files
-            cp -r $HOME/miniconda3/lib/cmake/llvm/* /opt/llvm/lib/cmake/llvm/
-            # Copy libraries
-            cp -r $HOME/miniconda3/lib/*.so* /opt/llvm/lib/ 2>/dev/null || true
-            cp -r $HOME/miniconda3/lib/*.a /opt/llvm/lib/ 2>/dev/null || true
-            # Copy headers
-            cp -r $HOME/miniconda3/include/* /opt/llvm/include/ 2>/dev/null || true
-            export CMAKE_PREFIX_PATH="/opt/llvm"
-
-          CIBW_BEFORE_BUILD_MACOS: |
-            set -eux
-            # Ensure conda is available and activated
-            export PATH="$HOME/miniconda3/bin:$PATH"
-            export CONDA_PLUGINS_AUTO_ACCEPT_TOS=true
-            # Activate conda base environment
-            source $HOME/miniconda3/etc/profile.d/conda.sh
-            conda activate base
-            python -m pip install -U pip wheel
-
-            # Install llvmdev using conda
-            if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
-              CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
-              conda install -y -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
-            else
-              conda install -y -c defaults "${{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
-            fi
-            
-            # Copy LLVM files to make them accessible to the build
-            sudo mkdir -p /opt/llvm/lib/cmake/llvm
-            sudo mkdir -p /opt/llvm/lib
-            sudo mkdir -p /opt/llvm/include
-            # Copy CMake files
-            sudo cp -r $HOME/miniconda3/lib/cmake/llvm/* /opt/llvm/lib/cmake/llvm/
-            # Copy libraries
-            sudo cp -r $HOME/miniconda3/lib/*.dylib /opt/llvm/lib/ 2>/dev/null || true
-            sudo cp -r $HOME/miniconda3/lib/*.a /opt/llvm/lib/ 2>/dev/null || true
-            # Copy headers
-            sudo cp -r $HOME/miniconda3/include/* /opt/llvm/include/ 2>/dev/null || true
-            export CMAKE_PREFIX_PATH="/opt/llvm"
-
-          CIBW_BEFORE_BUILD_WINDOWS: |
-            # Ensure conda is available
-            set PATH=C:\miniconda;C:\miniconda\Scripts;%PATH%
-            python -m pip install -U pip wheel
-
-            # Install llvmdev using conda
-            if "%{{ inputs.llvmdev_run_id }}" neq "" (
-              set CHAN=file:///%{{ github.workspace }}/llvmdev_conda_packages
-              C:\miniconda\Scripts\conda.exe install -y -c defaults -c "%CHAN%" "llvmdev=%{{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
-            ) else (
-              C:\miniconda\Scripts\conda.exe install -y -c defaults "%{{ env.CONDA_CHANNEL_NUMBA }}::llvmdev=%{{ env.FALLBACK_LLVMDEV_VERSION }}" --no-deps
-            # Set CMAKE_PREFIX_PATH for LLVM CMake files
-            set CMAKE_PREFIX_PATH=C:\miniconda\lib\cmake\llvm\
-
           # Windows repair: use delvewheel
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: |
             python -m pip install delvewheel
@@ -204,19 +104,6 @@ jobs:
             MACOSX_DEPLOYMENT_TARGET=11.0
             LDFLAGS=-v -Wl,-rpath,/usr/lib
             CMAKE_PREFIX_PATH=/root/miniconda3/lib/cmake/llvm/
-
-          CIBW_ENVIRONMENT_LINUX: |
-            LLVMLITE_PACKAGE_FORMAT=wheel
-            CMAKE_PREFIX_PATH=/opt/llvm
-
-          CIBW_ENVIRONMENT_MACOS: |
-            LLVMLITE_PACKAGE_FORMAT=wheel
-            MACOSX_DEPLOYMENT_TARGET=11.0
-            CMAKE_PREFIX_PATH=/opt/llvm
-
-          CIBW_ENVIRONMENT_WINDOWS: |
-            LLVMLITE_PACKAGE_FORMAT=wheel
-            CMAKE_PREFIX_PATH=C:\miniconda\lib\cmake\llvm\
 
       - uses: actions/upload-artifact@v4
         with:
