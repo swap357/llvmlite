@@ -113,6 +113,11 @@ jobs:
             python -m pip install delvewheel
             python -m delvewheel repair --analyze-existing -w {dest_dir} {wheel}
 
+          # For Linux containers: use mounted host conda environment
+          CIBW_BEFORE_BUILD_LINUX: |
+            CMAKE_PREFIX_PATH=/host/${{ env.CMAKE_PREFIX_PATH }}
+            find $CMAKE_PREFIX_PATH -name "*.cmake" -type f | head -10
+
           # Environment variables
           CIBW_ENVIRONMENT: |
             LLVMLITE_PACKAGE_FORMAT=wheel
