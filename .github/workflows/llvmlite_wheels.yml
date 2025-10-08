@@ -103,7 +103,7 @@ jobs:
             LLVMLITE_PACKAGE_FORMAT=wheel
             MACOSX_DEPLOYMENT_TARGET=11.0
             LDFLAGS=-v -Wl,-rpath,/usr/lib
-            CMAKE_PREFIX_PATH=${{ env.CONDA_PREFIX }}/lib/cmake/llvm/
+            CMAKE_PREFIX_PATH=${{ env.CONDA }}/lib/cmake/llvm/
 
       - uses: actions/upload-artifact@v4
         with:
