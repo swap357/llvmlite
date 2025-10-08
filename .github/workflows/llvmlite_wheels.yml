@@ -81,6 +81,21 @@ jobs:
         run: |
           conda install numba/label/llvm20-wheel::llvmdev=20
 
+      - name: Find LLVMConfig.cmake and set CMAKE_PREFIX_PATH
+        run: |
+          # Find LLVMConfig.cmake in the conda environment
+          LLVM_CONFIG_PATH=$(find $CONDA_PREFIX -name "LLVMConfig.cmake" -type f | head -1)
+          if [ -z "$LLVM_CONFIG_PATH" ]; then
+            echo "ERROR: LLVMConfig.cmake not found in conda environment"
+            find $CONDA_PREFIX -name "*.cmake" -type f | head -10
+            exit 1
+          fi
+          # Extract the directory containing LLVMConfig.cmake
+          LLVM_CMAKE_DIR=$(dirname "$LLVM_CONFIG_PATH")
+          echo "Found LLVMConfig.cmake at: $LLVM_CONFIG_PATH"
+          echo "Setting CMAKE_PREFIX_PATH to: $LLVM_CMAKE_DIR"
+          echo "CMAKE_PREFIX_PATH=$LLVM_CMAKE_DIR" >> $GITHUB_ENV
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.0
         env:
@@ -103,7 +118,7 @@ jobs:
             LLVMLITE_PACKAGE_FORMAT=wheel
             MACOSX_DEPLOYMENT_TARGET=11.0
             LDFLAGS=-v -Wl,-rpath,/usr/lib
-            CMAKE_PREFIX_PATH=${{ env.CONDA }}/lib/cmake/llvm/
+            CMAKE_PREFIX_PATH=${{ env.CMAKE_PREFIX_PATH }}
 
       - uses: actions/upload-artifact@v4
         with:
