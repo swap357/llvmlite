@@ -80,15 +80,14 @@ jobs:
       - name: Install llvmdev
         run: |
           conda install numba/label/llvm20-wheel::llvmdev=20
-          echo "CONDA_PREFIX=$CONDA_PREFIX" >> $GITHUB_ENV
 
       - name: Find LLVMConfig.cmake and set CMAKE_PREFIX_PATH
         run: |
           # Find LLVMConfig.cmake in the conda environment
-          LLVM_CONFIG_PATH=$(find $CONDA_PREFIX -name "LLVMConfig.cmake" -type f | head -1)
+          LLVM_CONFIG_PATH=$(find $CONDA -name "LLVMConfig.cmake" -type f | head -1)
           if [ -z "$LLVM_CONFIG_PATH" ]; then
             echo "ERROR: LLVMConfig.cmake not found in conda environment"
-            find $CONDA_PREFIX -name "*.cmake" -type f | head -10
+            find $CONDA -name "*.cmake" -type f | head -10
             exit 1
           fi
           # Extract the directory containing LLVMConfig.cmake
