@@ -115,16 +115,16 @@ jobs:
 
           # For Linux containers: use mounted host conda environment
           CIBW_BEFORE_BUILD_LINUX: |
-            CMAKE_PREFIX_PATH=/host/${{ env.CMAKE_PREFIX_PATH }}
+            CMAKE_PREFIX_PATH=/host${{ env.CMAKE_PREFIX_PATH }}
             find $CMAKE_PREFIX_PATH -name "*.cmake" -type f | head -10
-            export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH
+            echo "CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
 
           # Environment variables
           CIBW_ENVIRONMENT: |
             LLVMLITE_PACKAGE_FORMAT=wheel
             MACOSX_DEPLOYMENT_TARGET=11.0
             LDFLAGS=-v -Wl,-rpath,/usr/lib
-            CMAKE_PREFIX_PATH=${{ env.CMAKE_PREFIX_PATH }}
+            CMAKE_PREFIX_PATH=/host${{ env.CMAKE_PREFIX_PATH }}
 
       - uses: actions/upload-artifact@v4
         with:
