@@ -117,7 +117,6 @@ jobs:
           CIBW_BEFORE_BUILD_LINUX: |
             CMAKE_PREFIX_PATH=/host${{ env.CMAKE_PREFIX_PATH }}
             find $CMAKE_PREFIX_PATH -name "*.cmake" -type f | head -10
-            echo "CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
 
           # Environment variables
           CIBW_ENVIRONMENT: |
