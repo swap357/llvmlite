@@ -41,6 +41,9 @@ python setup.py clean
 # Configure build via env vars
 export LLVMLITE_PACKAGE_FORMAT="wheel"
 
+# Force old C++ ABI to match LLVM conda package
+export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0 ${CXXFLAGS}"
+
 # Build wheel
 distdir=$outputdir/dist_$(uname -m)_$pyver
 rm -rf $distdir
