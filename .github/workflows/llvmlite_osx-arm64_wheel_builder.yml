@@ -47,7 +47,6 @@ jobs:
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@835234971496cad1653abb28a638a281cf32541f # v3.2.0
         with:
-          python-version: ${{ matrix.python-version }}
           auto-update-conda: true
           auto-activate-base: true
 
@@ -63,6 +62,12 @@ jobs:
 
       - name: Install build dependencies
         run: |
+          if [[ "${{ matrix.python-version }}" == *t ]]; then
+              PY_VER=${{ matrix.python-version }}
+              conda install -c conda-forge python-freethreading="${PY_VER%t}"
+          else
+              conda install -c defaults python="${{ matrix.python-version }}"
+          fi
           if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
               CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
               conda install -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}"
@@ -71,7 +76,11 @@ jobs:
               conda install -c defaults "${CHAN}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}"
           fi
           python -m pip install build wheel setuptools
-
+          # TODO: delete when leif ships free-threaded wheels
+          if [[ "${{ matrix.python-version }}" == *t ]]; then
+              python -m pip install tomli scikit-build-core pydantic pathspec
+              python -m pip install -v "lief @ git+https://github.com/lief-project/LIEF##subdirectory=api/python" --no-build-isolation
+          fi
           # Hide libunwind to prevent it from being linked against during build
           # On macOS, if libunwind.dylib from the llvmdev conda package gets linked, the resulting wheel
           # will have a runtime dependency on @rpath/libunwind.1.dylib.
@@ -181,9 +190,14 @@ jobs:
         run: |
           PYTHON_PATH=$(which "python${{ matrix.python-version }}")
           "$PYTHON_PATH" -m venv .venv && source .venv/bin/activate
-          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade pip setuptools wheel
           echo "Installing lief for distribution testing"
-          python -m pip install -v lief
+          if [[ "${{ matrix.python-version }}" == *t ]]; then
+              python -m pip install tomli scikit-build-core pydantic pathspec
+              python -m pip install -v "lief @ git+https://github.com/lief-project/LIEF##subdirectory=api/python" --no-build-isolation
+          else
+              python -m pip install -v lief
+          fi
           cd dist && python -m pip install -v ./*.whl
           DYLIB_PATH=$(find "$(python -c "import llvmlite; print(llvmlite.__path__[0])")" -name "libllvmlite.dylib")
           echo "Found dylib at: $DYLIB_PATH" && otool -L "$DYLIB_PATH"
