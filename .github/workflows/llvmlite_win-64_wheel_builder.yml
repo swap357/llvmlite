@@ -77,12 +77,13 @@ jobs:
               conda install -c defaults "${CHAN}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}"
           fi
           conda install -c defaults cmake libxml2
-          python -m pip install build wheel setuptools delvewheel
+          python -m pip install build wheel delvewheel
           # TODO: delete when PyLEIF ships free-threaded wheels
           if [[ "${{ matrix.python-version }}" == *t ]]; then
-              python -m pip install tomli scikit-build-core pydantic pathspec
+              python -m pip install tomli scikit-build-core pydantic pathspec setuptools==70.2.0
               python -m pip install -v "lief @ git+https://github.com/lief-project/LIEF##subdirectory=api/python" --no-build-isolation
           fi
+          python -m pip install -U setuptools
 
 
       - name: Build wheel
