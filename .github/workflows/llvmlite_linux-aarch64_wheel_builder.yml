@@ -197,7 +197,13 @@ jobs:
           fi
 
           echo "Installing lief for distribution testing"
-          "${PYTHON_PATH}" -m pip install -v lief
+          # TODO: delete when PyLEIF ships free-threaded wheels
+          if [[ "${{ matrix.python-version }}" == *t ]]; then
+              "${PYTHON_PATH}" -m pip install tomli scikit-build-core pydantic pathspec
+              "${PYTHON_PATH}" -m pip install -v "lief @ git+https://github.com/lief-project/LIEF##subdirectory=api/python" --no-build-isolation
+          else
+              "${PYTHON_PATH}" -m pip install -v lief
+          fi
 
           echo "Using wheel: $whl"
           "${PYTHON_PATH}" -m pip install -v "$whl"

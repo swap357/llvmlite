@@ -76,7 +76,7 @@ jobs:
               conda install -c defaults "${CHAN}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}"
           fi
           python -m pip install build wheel setuptools
-          # TODO: delete when leif ships free-threaded wheels
+          # TODO: delete when PyLEIF ships free-threaded wheels
           if [[ "${{ matrix.python-version }}" == *t ]]; then
               python -m pip install tomli scikit-build-core pydantic pathspec
               python -m pip install -v "lief @ git+https://github.com/lief-project/LIEF##subdirectory=api/python" --no-build-isolation
@@ -192,6 +192,7 @@ jobs:
           "$PYTHON_PATH" -m venv .venv && source .venv/bin/activate
           python -m pip install --upgrade pip setuptools wheel
           echo "Installing lief for distribution testing"
+          # TODO: delete when PyLEIF ships free-threaded wheels
           if [[ "${{ matrix.python-version }}" == *t ]]; then
               python -m pip install tomli scikit-build-core pydantic pathspec
               python -m pip install -v "lief @ git+https://github.com/lief-project/LIEF##subdirectory=api/python" --no-build-isolation

@@ -78,6 +78,12 @@ jobs:
           fi
           conda install -c defaults cmake libxml2
           python -m pip install build wheel setuptools delvewheel
+          # TODO: delete when PyLEIF ships free-threaded wheels
+          if [[ "${{ matrix.python-version }}" == *t ]]; then
+              python -m pip install tomli scikit-build-core pydantic pathspec
+              python -m pip install -v "lief @ git+https://github.com/lief-project/LIEF##subdirectory=api/python" --no-build-isolation
+          fi
+
 
       - name: Build wheel
         env:
