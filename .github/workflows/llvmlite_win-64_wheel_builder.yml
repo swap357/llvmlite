@@ -176,8 +176,6 @@ jobs:
           path: dist
 
       - name: Install and test
-        env:
-          LLVMLITE_DIST_TEST: "1"
         run: |
           # Upgrade pip and install wheel
           python -m pip install --upgrade pip wheel
