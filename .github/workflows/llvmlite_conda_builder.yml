@@ -5,6 +5,7 @@ on:
     branches:
       - main
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - .github/workflows/llvmlite_conda_builder.yml
       - buildscripts/github/llvmlite_evaluate.py
@@ -55,11 +56,13 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_WORKFLOW_INPUT: ${{ toJson(github.event.inputs) }}
+          GITHUB_PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
           set -ex
           echo "=== Environment ==="
           echo "Event: $GITHUB_EVENT_NAME"
           echo "Inputs: $GITHUB_WORKFLOW_INPUT"
+          echo "PR Labels: $GITHUB_PR_LABELS"
           echo "=== Running evaluation script ==="
           ./buildscripts/github/llvmlite_evaluate.py
           echo "=== Evaluation completed ==="

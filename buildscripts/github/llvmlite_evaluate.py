@@ -6,8 +6,14 @@ from pathlib import Path
 
 
 event = os.environ.get("GITHUB_EVENT_NAME")
-label = os.environ.get("GITHUB_LABEL_NAME")
+pr_labels_json = os.environ.get("GITHUB_PR_LABELS", "[]")
 inputs = os.environ.get("GITHUB_WORKFLOW_INPUT", "{}")
+
+# Parse PR labels
+try:
+    pr_labels = json.loads(pr_labels_json) if pr_labels_json else []
+except json.JSONDecodeError:
+    pr_labels = []
 
 runner_mapping = {
     "linux-64": "ubuntu-24.04",
@@ -48,17 +54,43 @@ default_include = [
 
 print(
     "Deciding what to do based on event: "
-    f"'{event}', label: '{label}', inputs: '{inputs}'"
+    f"'{event}', labels: '{pr_labels}', inputs: '{inputs}'"
 )
-if event in ("pull_request", "push"):
-    # This condition is entered on pull requests and pushes. The controlling
-    # workflow is expected to filter push events to only the `main` branch.
-    # See `on.push.branches` in `.github/workflows/llvmlite_conda_builder.yml`.
+if event == "push":
+    # Push events to main branch
     print(f"{event} detected, running full build matrix.")
     include = default_include
-elif event == "label" and label == "build_llvmlite_on_gha":
-    print("build label detected")
-    include = default_include
+elif event == "pull_request":
+    # Check if both 'conda' and 'gha' labels are present
+    has_conda_and_gha = "conda" in pr_labels and "gha" in pr_labels
+
+    if has_conda_and_gha:
+        # Both labels present - run build
+        print(f"pull_request with both 'conda' and 'gha' labels detected.")
+
+        # Check for platform-specific labels
+        platform_labels = {"linux-64", "linux-aarch64", "osx-arm64", "win-64"}
+        platform_filter = platform_labels.intersection(pr_labels)
+
+        if platform_filter:
+            # Filter matrix by specified platforms
+            print(f"Filtering by platforms: {platform_filter}")
+            include = [
+                item for item in default_include
+                if item["platform"] in platform_filter
+            ]
+        else:
+            # No platform filter - run all platforms
+            print("Running full build matrix for all platforms.")
+            include = default_include
+    elif "conda" in pr_labels or "gha" in pr_labels:
+        # Only one label present - skip
+        print(f"pull_request has labels {pr_labels} but requires BOTH 'conda' AND 'gha'. Skipping.")
+        include = []
+    else:
+        # No build labels - triggered by path changes
+        print("pull_request triggered by path changes, running full build matrix.")
+        include = default_include
 elif event == "workflow_dispatch":
     print("workflow_dispatch detected")
     params = json.loads(inputs)
