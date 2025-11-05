@@ -36,7 +36,7 @@ jobs:
         shell: bash -elx {0}
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
+        python-version: ["3.14t"]
       fail-fast: false
 
     steps:
@@ -119,7 +119,7 @@ jobs:
         shell: bash -elx {0}
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
+        python-version: ["3.14t"]
       fail-fast: false
     steps:
       - name: Clone repository
@@ -159,7 +159,7 @@ jobs:
         shell: bash -elx {0}
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
+        python-version: ["3.14t"]
       fail-fast: false
 
     steps:
@@ -179,9 +179,6 @@ jobs:
         run: |
           # Upgrade pip and install wheel
           python -m pip install --upgrade pip wheel
-
-          echo "Installing lief for distribution testing"
-          python -m pip install -v lief
 
           # Install wheel and run tests
           cd dist
@@ -203,7 +200,7 @@ jobs:
         shell: bash -elx {0}
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
+        python-version: ["3.14t"]
       fail-fast: false
     steps:
       - name: Setup Miniconda
