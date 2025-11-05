@@ -1,3 +1,13 @@
+"""
+Example demonstrating JIT compilation of a simple sum function using llvmlite.
+
+This example creates an LLVM IR function that sums an array of integers,
+compiles it with MCJIT, and executes it. It also benchmarks each step:
+- IR generation
+- Assembly parsing
+- Optimization passes
+- JIT compilation
+"""
 from __future__ import print_function
 
 from ctypes import CFUNCTYPE, c_int, POINTER
