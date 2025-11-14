@@ -12,16 +12,6 @@ on:
         required: false
         type: string
         default: 'dev'
-      copy_conda_to_main:
-        description: 'copy to Anaconda.org main label'
-        required: false
-        type: boolean
-        default: false
-      publish_to_pypi:
-        description: 'Publish to PyPI (main)'
-        required: false
-        type: boolean
-        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.tag || github.sha }}
@@ -55,7 +45,7 @@ jobs:
           fi
           output=$(./buildscripts/github/find_workflow_runs.py \
             --tag "$TAG" \
-            --repo ${{ github.repository }} \
+            --repo numba/llvmlite \
             --token "${{ secrets.GITHUB_TOKEN }}" \
             --config ./buildscripts/github/workflow_groups.json)
           echo "$output" >> $GITHUB_OUTPUT
@@ -80,7 +70,7 @@ jobs:
         run: |
           ./buildscripts/github/download_artifacts.py \
             --run-ids ${{ needs.find-workflow-runs.outputs.conda_run_ids }} \
-            --repo ${{ github.repository }} \
+            --repo numba/llvmlite \
             --token "${{ secrets.GITHUB_TOKEN }}" \
             --output-dir conda_packages
 
@@ -90,7 +80,7 @@ jobs:
         run: |
           ./buildscripts/github/download_artifacts.py \
             --run-ids ${{ needs.find-workflow-runs.outputs.wheel_run_ids }} \
-            --repo ${{ github.repository }} \
+            --repo numba/llvmlite \
             --token "${{ secrets.GITHUB_TOKEN }}" \
             --output-dir dist
 
@@ -136,147 +126,3 @@ jobs:
           name: conda-packages
           path: conda_packages/
           retention-days: 7
-
-  publish-testpypi:
-    name: Publish to TestPyPI
-    needs: download-artifacts
-    runs-on: ubuntu-latest
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/p/llvmlite
-    permissions:
-      id-token: write
-
-    steps:
-      - name: Download wheels artifact
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: wheels
-          path: dist
-
-      - name: List artifacts to publish
-        run: |
-          echo "=== To publish ==="
-          ls -lh dist/
-          echo ""
-          find dist -type f -name "*.whl" | wc -l
-
-      - name: Publish wheels to TestPyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          verbose: true
-
-  publish-pypi:
-    name: Publish to PyPI
-    needs: publish-testpypi
-    if: inputs.publish_to_pypi
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/llvmlite
-    permissions:
-      id-token: write
-
-    steps:
-      - name: Download wheels artifact
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: wheels
-          path: dist
-
-      - name: List artifacts to publish
-        run: |
-          echo "=== To publish ==="
-          ls -lh dist/
-          echo ""
-          find dist -type f -name "*.whl" | wc -l
-
-      - name: Publish wheels to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          verbose: true
-
-  publish-anaconda-org:
-    name: Publish to Anaconda.org
-    needs: download-artifacts
-    runs-on: ubuntu-latest
-    env:
-      ANACONDA_USER: numba
-      ANACONDA_LABEL: ${{ inputs.anaconda_label || 'dev' }}
-    defaults:
-      run:
-        shell: bash -elx {0}
-
-    steps:
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@835234971496cad1653abb28a638a281cf32541f # v3.2.0
-        with:
-          python-version: '3.13'
-          auto-update-conda: true
-          auto-activate-base: true
-
-      - name: Install anaconda-client
-        run: conda install -c anaconda anaconda-client
-
-      - name: Download conda packages artifact
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: conda-packages
-          path: conda_packages
-
-      - name: Download wheels artifact
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: wheels
-          path: dist
-
-      - name: List conda packages to publish
-        run: |
-          echo "=== Conda packages to publish ==="
-          find conda_packages -type f -name "*.conda" -print | sort
-          echo ""
-          echo "=== Total packages ==="
-          find conda_packages -type f -name "*.conda" | wc -l
-          echo ""
-
-      - name: List wheels to publish
-        run: |
-          echo "=== Wheels to publish ==="
-          find dist -type f -name "*.whl" -print | sort
-          echo ""
-          echo "=== Total wheels ==="
-          find dist -type f -name "*.whl" | wc -l
-          echo ""
-
-      - name: Publish conda packages to Anaconda.org
-        env:
-          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_ORG_GITHUB_LLVMLITE_UPLOAD }}
-        run: |
-          echo "Publishing conda packages to: ${{ env.ANACONDA_USER }}/label/${{ env.ANACONDA_LABEL }}"
-          find conda_packages -name "*.conda" -type f | while read -r pkg; do
-            echo "Uploading: $pkg"
-            anaconda -t "$ANACONDA_API_TOKEN" upload --force -u ${{ env.ANACONDA_USER }} -l ${{ env.ANACONDA_LABEL }} "$pkg"
-          done
-
-      - name: Publish wheels to Anaconda.org
-        env:
-          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_ORG_GITHUB_LLVMLITE_UPLOAD }}
-        run: |
-          echo "Publishing wheels to: ${{ env.ANACONDA_USER }}/label/${{ env.ANACONDA_LABEL }}"
-          find dist -name "*.whl" -type f | while read -r pkg; do
-            echo "Uploading: $pkg"
-            anaconda -t "$ANACONDA_API_TOKEN" upload --force -u ${{ env.ANACONDA_USER }} -l ${{ env.ANACONDA_LABEL }} "$pkg"
-          done
-
-      - name: Copy packages to main label
-        if: inputs.copy_conda_to_main
-        env:
-          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_ORG_GITHUB_LLVMLITE_UPLOAD }}
-        run: |
-          echo "Copying packages from ${{ env.ANACONDA_LABEL }} to main"
-          find conda_packages -name "*.conda" -type f | while read -r pkg; do
-            PKG_NAME=$(basename "$pkg" .conda)
-            echo "Copying: $PKG_NAME"
-            anaconda -t "$ANACONDA_API_TOKEN" copy ${{ env.ANACONDA_USER }}/$PKG_NAME --from-label ${{ env.ANACONDA_LABEL }} --to-label main
-          done
