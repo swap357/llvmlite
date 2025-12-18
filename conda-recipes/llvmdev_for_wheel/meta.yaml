@@ -29,6 +29,8 @@ build:
   script_env:
     - CFLAGS        [linux]
     - CXXFLAGS      [linux]
+    - PGO_INSTRUMENT
+    - PGO_PROFDATA
     - PY_VCRUNTIME_REDIST
   ignore_run_exports:
     # Is static-linked
@@ -45,6 +47,11 @@ requirements:
     - patch       # [not win]
     - m2-patch    # [win]
     - git         # [(linux and x86_64)]
+    # PGO builds require clang toolchain
+    - clang==19      # [linux]
+    - clangxx==19    # [linux]
+    - compiler-rt     # [linux]
+    - llvm-tools      # [linux]
 
   host:
     - libcxx    # it is not defined{{ cxx_compiler_version }}  # [osx]

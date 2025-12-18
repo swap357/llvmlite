@@ -14,17 +14,34 @@ sed -i.bak "s/NOT APPLE AND NOT ARG_SONAME/NOT ARG_SONAME/g" llvm/cmake/modules/
 mkdir build
 cd build
 
-export CPU_COUNT=4
+export CPU_COUNT=8
 
 CMAKE_ARGS="${CMAKE_ARGS} -DLLVM_ENABLE_PROJECTS=lld;compiler-rt"
+
+# PGO: Set compiler overrides BEFORE cross-toolchain check
+if [[ "${PGO_INSTRUMENT:-0}" == "1" || -n "${PGO_PROFDATA}" ]]; then
+  echo "=== PGO: Using clang toolchain ==="
+  export PATH="${BUILD_PREFIX}/bin:${PATH}"
+  export CC="${BUILD_PREFIX}/bin/clang"
+  export CXX="${BUILD_PREFIX}/bin/clang++"
+  export CC_FOR_BUILD="${CC}"
+  export CXX_FOR_BUILD="${CXX}"
+  echo "CC=${CC}"
+  echo "CXX=${CXX}"
+fi
 
 if [[ "$target_platform" == "linux-64" ]]; then
   CMAKE_ARGS="${CMAKE_ARGS} -DLLVM_USE_INTEL_JITEVENTS=ON"
 fi
 
 if [[ "$CC_FOR_BUILD" != "" && "$CC_FOR_BUILD" != "$CC" ]]; then
-  CMAKE_ARGS="${CMAKE_ARGS} -DCROSS_TOOLCHAIN_FLAGS_NATIVE=-DCMAKE_C_COMPILER=$CC_FOR_BUILD;-DCMAKE_CXX_COMPILER=$CXX_FOR_BUILD;-DCMAKE_C_FLAGS=-O2;-DCMAKE_CXX_FLAGS=-O2;-DCMAKE_EXE_LINKER_FLAGS=-Wl,-rpath,${BUILD_PREFIX}/lib;-DCMAKE_MODULE_LINKER_FLAGS=;-DCMAKE_SHARED_LINKER_FLAGS=;-DCMAKE_STATIC_LINKER_FLAGS=;-DLLVM_INCLUDE_BENCHMARKS=OFF;"
+  CMAKE_ARGS="${CMAKE_ARGS} -DCROSS_TOOLCHAIN_FLAGS_NATIVE=-DCMAKE_C_COMPILER=$CC_FOR_BUILD;-DCMAKE_CXX_COMPILER=$CXX_FOR_BUILD;-DCMAKE_C_FLAGS=-O2;-DCMAKE_CXX_FLAGS=-O2;-DCMAKE_EXE_LINKER_FLAGS=-Wl,-rpath,${BUILD_PREFIX}/lib;-DCMAKE_MODULE_LINKER_FLAGS=;-DCMAKE_SHARED_LINKER_FLAGS=;-DCMAKE_STATIC_LINKER_FLAGS=;-DLLVM_INCLUDE_BENCHMARKS=OFF;-DLLVM_ENABLE_ZSTD=OFF;"
   CMAKE_ARGS="${CMAKE_ARGS} -DLLVM_HOST_TRIPLE=$(echo $HOST | sed s/conda/unknown/g) -DLLVM_DEFAULT_TARGET_TRIPLE=$(echo $HOST | sed s/conda/unknown/g)"
+fi
+
+# Also pass ZSTD=OFF to native build for PGO (LLVM may still trigger native build)
+if [[ "${PGO_INSTRUMENT:-0}" == "1" || -n "${PGO_PROFDATA}" ]]; then
+  CMAKE_ARGS="${CMAKE_ARGS} -DCROSS_TOOLCHAIN_FLAGS_NATIVE=-DLLVM_ENABLE_ZSTD=OFF;-DLLVM_INCLUDE_BENCHMARKS=OFF;"
 fi
 
 # disable -fno-plt due to https://bugs.llvm.org/show_bug.cgi?id=51863 due to some GCC bug
@@ -36,7 +53,22 @@ if [[ "$target_platform" == "linux-ppc64le" ]]; then
 fi
 
 if [[ $target_platform == osx-arm64 ]]; then
+
   CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_ENABLE_WERROR=FALSE"
+fi
+
+# PGO: Add instrumentation flag
+if [[ "${PGO_INSTRUMENT:-0}" == "1" ]]; then
+  CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_C_COMPILER=${CC}"
+  CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_CXX_COMPILER=${CXX}"
+  CMAKE_ARGS="${CMAKE_ARGS} -DLLVM_BUILD_INSTRUMENTED=IR"
+fi
+
+# PGO: Add profile data for optimized build
+if [[ -n "${PGO_PROFDATA}" ]]; then
+  CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_C_COMPILER=${CC}"
+  CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_CXX_COMPILER=${CXX}"
+  CMAKE_ARGS="${CMAKE_ARGS} -DLLVM_PROFDATA_FILE=${PGO_PROFDATA}"
 fi
 
 cmake -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
