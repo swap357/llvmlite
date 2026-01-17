@@ -1,4 +1,6 @@
+import os
 import sys
+import warnings
 
 import unittest
 from unittest import TestCase
@@ -25,6 +27,14 @@ def discover_tests(startdir):
     loader = unittest.TestLoader()
     suite = loader.discover(startdir)
     return suite
+
+
+def load_tests(loader, standard_tests, pattern):
+    # top level directory cached on loader instance
+    this_dir = os.path.dirname(__file__)
+    package_tests = loader.discover(start_dir=this_dir, pattern="test_*.py")
+    standard_tests.addTests(package_tests)
+    return standard_tests
 
 
 def run_tests(suite=None, xmloutput=None, verbosity=1):

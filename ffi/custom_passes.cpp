@@ -17,9 +17,13 @@
 
 #include <iostream>
 #include <vector>
+#include <thread>
 
 // #define DEBUG_PRINT 1
 #define DEBUG_PRINT 0
+
+// Thread-safety debug logging (set to 1 to enable)
+#define DEBUG_THREAD_STATS 0
 
 using namespace llvm;
 
@@ -171,10 +175,10 @@ typedef enum {
 
 struct RefPrune {
     static char ID;
-    static size_t stats_per_bb;
-    static size_t stats_diamond;
-    static size_t stats_fanout;
-    static size_t stats_fanout_raise;
+    static thread_local size_t stats_per_bb;
+    static thread_local size_t stats_diamond;
+    static thread_local size_t stats_fanout;
+    static thread_local size_t stats_fanout_raise;
 
     // Fixed size for how deep to recurse in the fanout case prior to giving up.
     static const size_t FANOUT_RECURSE_DEPTH = 15;
@@ -286,6 +290,9 @@ struct RefPrune {
                 // Do we care about differentiating between prunes of NULL
                 // and prunes of pairs?
                 stats_per_bb += 1;
+#if DEBUG_THREAD_STATS
+                std::cerr << "[Thread " << std::this_thread::get_id() << "] stats_per_bb++ -> " << stats_per_bb << "\n";
+#endif
             }
 
             // Second: Find matching pairs of incref decref
@@ -313,6 +320,9 @@ struct RefPrune {
                         // set mutated bit and update prune stats
                         mutated = true;
                         stats_per_bb += 2;
+#if DEBUG_THREAD_STATS
+                        std::cerr << "[Thread " << std::this_thread::get_id() << "] stats_per_bb+=2 -> " << stats_per_bb << "\n";
+#endif
                         break;
                     }
                 }
@@ -427,6 +437,9 @@ struct RefPrune {
                         decref = NULL;
 
                         stats_diamond += 2;
+#if DEBUG_THREAD_STATS
+                        std::cerr << "[Thread " << std::this_thread::get_id() << "] stats_diamond+=2 -> " << stats_diamond << "\n";
+#endif
                     }
                     // mark mutated
                     mutated = true;
@@ -583,10 +596,17 @@ struct RefPrune {
                             decref->eraseFromParent();
 
                             // update counters based on decref removal
-                            if (prune_raise_exit)
+                            if (prune_raise_exit) {
                                 stats_fanout_raise += 1;
-                            else
+#if DEBUG_THREAD_STATS
+                                std::cerr << "[Thread " << std::this_thread::get_id() << "] stats_fanout_raise++ -> " << stats_fanout_raise << "\n";
+#endif
+                            } else {
                                 stats_fanout += 1;
+#if DEBUG_THREAD_STATS
+                                std::cerr << "[Thread " << std::this_thread::get_id() << "] stats_fanout++ -> " << stats_fanout << "\n";
+#endif
+                            }
                             break;
                         }
                     }
@@ -595,10 +615,17 @@ struct RefPrune {
                 incref->eraseFromParent();
 
                 // update counters based on incref removal
-                if (prune_raise_exit)
+                if (prune_raise_exit) {
                     stats_fanout_raise += 1;
-                else
+#if DEBUG_THREAD_STATS
+                    std::cerr << "[Thread " << std::this_thread::get_id() << "] stats_fanout_raise++ (incref) -> " << stats_fanout_raise << "\n";
+#endif
+                } else {
                     stats_fanout += 1;
+#if DEBUG_THREAD_STATS
+                    std::cerr << "[Thread " << std::this_thread::get_id() << "] stats_fanout++ (incref) -> " << stats_fanout << "\n";
+#endif
+                }
                 mutated = true;
             }
         }
@@ -1192,10 +1219,10 @@ class RefNormalizePass : public PassInfoMixin<RefNormalizePass> {
     }
 };
 
-size_t RefPrune::stats_per_bb = 0;
-size_t RefPrune::stats_diamond = 0;
-size_t RefPrune::stats_fanout = 0;
-size_t RefPrune::stats_fanout_raise = 0;
+thread_local size_t RefPrune::stats_per_bb = 0;
+thread_local size_t RefPrune::stats_diamond = 0;
+thread_local size_t RefPrune::stats_fanout = 0;
+thread_local size_t RefPrune::stats_fanout_raise = 0;
 
 extern "C" {
 

@@ -9,7 +9,7 @@ import re
 import textwrap
 import unittest
 
-from . import TestCase
+from unittest import TestCase
 from llvmlite import ir
 from llvmlite import binding as llvm
 from llvmlite import ir_layer_typed_pointers_enabled
