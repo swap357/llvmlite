@@ -106,6 +106,8 @@ jobs:
           auto-activate-base: true
           activate-environment: ''
           run-post: false
+      - run: |
+          bash buildscripts/github/configure_conda.sh
 
       - name: Build and test conda package in manylinux - linux platforms
         if: (matrix.platform == 'linux-64' || matrix.platform == 'linux-aarch64') && matrix.recipe == 'llvmdev_for_wheel'
