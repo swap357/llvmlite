@@ -14,51 +14,19 @@ runner_mapping = {
     "linux-aarch64": "ubuntu-24.04-arm",
     "osx-arm64": "macos-14",
     "win-64": "windows-2025",
+    "win-arm64": "windows-11-arm",
 }
 
 default_include = [
-    # linux-64
+    # win-arm64
     {
-        "runner": runner_mapping["linux-64"],
-        "platform": "linux-64",
+        "runner": runner_mapping["win-arm64"],
+        "platform": "win-arm64",
         "recipe": "llvmdev",
     },
     {
-        "runner": runner_mapping["linux-64"],
-        "platform": "linux-64",
-        "recipe": "llvmdev_for_wheel",
-    },
-    # linux-aarch64
-    {
-        "runner": runner_mapping["linux-aarch64"],
-        "platform": "linux-aarch64",
-        "recipe": "llvmdev",
-    },
-    {
-        "runner": runner_mapping["linux-aarch64"],
-        "platform": "linux-aarch64",
-        "recipe": "llvmdev_for_wheel",
-    },
-    # osx-arm64
-    {
-        "runner": runner_mapping["osx-arm64"],
-        "platform": "osx-arm64",
-        "recipe": "llvmdev",
-    },
-    {
-        "runner": runner_mapping["osx-arm64"],
-        "platform": "osx-arm64",
-        "recipe": "llvmdev_for_wheel",
-    },
-    # win-64
-    {
-        "runner": runner_mapping["win-64"],
-        "platform": "win-64",
-        "recipe": "llvmdev",
-    },
-    {
-        "runner": runner_mapping["win-64"],
-        "platform": "win-64",
+        "runner": runner_mapping["win-arm64"],
+        "platform": "win-arm64",
         "recipe": "llvmdev_for_wheel",
     },
 ]
