@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - .github/workflows/llvmlite_linux-aarch64_wheel_builder.yml
+      - buildscripts/manylinux/build_llvmlite.sh
+      - buildscripts/manylinux/prepare_miniconda.sh
+      - setup.py
+      - versioneer.py
   schedule:
     - cron: '30 6 * * 6'  # Saturday 6:30 AM UTC
   workflow_dispatch:
