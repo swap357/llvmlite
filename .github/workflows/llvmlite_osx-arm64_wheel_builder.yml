@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - .github/workflows/llvmlite_osx-arm64_wheel_builder.yml
+      - MANIFEST.in
+      - setup.py
+      - versioneer.py
   schedule:
     - cron: '30 6 * * 6'  # Saturday 6:30 AM UTC
   workflow_dispatch:
