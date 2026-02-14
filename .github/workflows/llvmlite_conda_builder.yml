@@ -9,6 +9,8 @@ on:
       - .github/workflows/llvmlite_conda_builder.yml
       - buildscripts/github/llvmlite_evaluate.py
       - conda-recipes/llvmlite/**
+      - setup.py
+      - versioneer.py
   schedule:
     - cron: '0 6 * * 6'  # Saturday 6:00 AM UTC
   workflow_dispatch:
