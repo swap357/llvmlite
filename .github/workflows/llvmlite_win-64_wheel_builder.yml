@@ -21,6 +21,9 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+
 # Add concurrency control
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
