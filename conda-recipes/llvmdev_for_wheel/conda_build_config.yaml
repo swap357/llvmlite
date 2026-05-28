@@ -11,6 +11,9 @@
 #   - 7                       # [linux and (x86_64 or ppc64le)]
 #   - 11                      # [linux and aarch64]
 
+target_platform:             # [win]
+  - win-arm64                # [win]
+
 c_compiler:              # [win]
   - vs2022              # [win]
 cxx_compiler:            # [win]
