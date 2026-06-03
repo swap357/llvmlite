@@ -86,7 +86,7 @@ jobs:
           if [ -n "${{ github.event.inputs.llvmdev_run_id }}" ]; then
             LLVMDEV_CHANNEL="file:///${{ github.workspace }}/llvmdev_conda_packages"
           else
-            LLVMDEV_CHANNEL="numba/label/llvm"
+            LLVMDEV_CHANNEL="swap357/label/llvm"
           fi
           mkdir -p "${CONDA_CHANNEL_DIR}"
           conda-build -c "${LLVMDEV_CHANNEL}" \
