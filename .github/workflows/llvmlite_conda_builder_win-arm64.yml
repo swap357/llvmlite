@@ -1,0 +1,150 @@
+name: llvmlite_conda_builder_win-arm64
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/llvmlite_conda_builder_win-arm64.yml
+      - buildscripts/github/**
+      - conda-recipes/llvmlite/**
+      - ffi/**
+      - setup.py
+      - versioneer.py
+  label:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      llvmdev_run_id:
+        description: 'llvmdev workflow run ID (optional)'
+        required: false
+        type: string
+
+concurrency:
+  group: >-
+    ${{ github.workflow }}-
+    ${{ github.event.pull_request.number
+      || toJson(github.event.inputs)
+      || github.event.label.name
+      || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  ARTIFACT_RETENTION_DAYS: 7
+  WIN_ARM64_CONDA_CHANNEL: bootstrap-win-arm64-round-2-native
+
+jobs:
+
+  build:
+    name: win-arm64-py${{ matrix.python-version }}-build
+    runs-on: windows-11-arm
+    defaults:
+      run:
+        shell: bash -el {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up conda-standalone
+        uses: conda-incubator/setup-conda-standalone@00a34805e93a8b640aee5f8a20e8f481ad77e3b4 # v0.1.0
+        with:
+          channel: ${{ env.WIN_ARM64_CONDA_CHANNEL }}
+          destination-directory: ${{ runner.temp }}/conda-standalone
+
+      - name: Install conda-build
+        run: |
+          export CONDA_PREFIX="${RUNNER_TEMP}/conda-base"
+          "${CONDA_EXE}" create --prefix "${CONDA_PREFIX}" \
+            -c "${WIN_ARM64_CONDA_CHANNEL}" --yes conda-build
+          echo "CONDA_PREFIX=${CONDA_PREFIX}" >> "${GITHUB_ENV}"
+          echo "${CONDA_PREFIX}" >> "${GITHUB_PATH}"
+          echo "${CONDA_PREFIX}/Scripts" >> "${GITHUB_PATH}"
+          echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
+
+      - name: Download llvmdev Artifact
+        if: ${{ github.event.inputs.llvmdev_run_id != '' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: llvmdev_win-arm64
+          path: llvmdev_conda_packages
+          run-id: ${{ github.event.inputs.llvmdev_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build llvmlite conda package
+        env:
+          CONDA_CHANNEL_DIR: conda_channel_dir
+        run: |
+          if [ -n "${{ github.event.inputs.llvmdev_run_id }}" ]; then
+            LLVMDEV_CHANNEL="file:///${{ github.workspace }}/llvmdev_conda_packages"
+          else
+            LLVMDEV_CHANNEL="numba/label/llvm"
+          fi
+          mkdir -p "${CONDA_CHANNEL_DIR}"
+          conda-build -c "${LLVMDEV_CHANNEL}" \
+            -c "${WIN_ARM64_CONDA_CHANNEL}" -c m2-winarm64 -c main \
+            --python "${{ matrix.python-version }}" conda-recipes/llvmlite \
+            "--output-folder=${CONDA_CHANNEL_DIR}" --no-test
+          ls -lah "${CONDA_CHANNEL_DIR}"
+
+      - name: Upload llvmlite conda package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: llvmlite-win-arm64-py${{ matrix.python-version }}
+          path: conda_channel_dir
+          compression-level: 0
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+          if-no-files-found: error
+
+      - name: Show Workflow Run ID
+        run: |
+          echo "Workflow Run ID: ${{ github.run_id }}"
+          echo "Use this ID when triggering upload or release workflows"
+
+  test:
+    name: win-arm64-py${{ matrix.python-version }}-test
+    needs: build
+    runs-on: windows-11-arm
+    defaults:
+      run:
+        shell: bash -el {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - name: Set up conda-standalone
+        uses: conda-incubator/setup-conda-standalone@00a34805e93a8b640aee5f8a20e8f481ad77e3b4 # v0.1.0
+        with:
+          channel: ${{ env.WIN_ARM64_CONDA_CHANNEL }}
+          destination-directory: ${{ runner.temp }}/conda-standalone
+
+      - name: Install conda-build
+        run: |
+          export CONDA_PREFIX="${RUNNER_TEMP}/conda-base"
+          "${CONDA_EXE}" create --prefix "${CONDA_PREFIX}" \
+            -c "${WIN_ARM64_CONDA_CHANNEL}" --yes conda-build
+          echo "CONDA_PREFIX=${CONDA_PREFIX}" >> "${GITHUB_ENV}"
+          echo "${CONDA_PREFIX}" >> "${GITHUB_PATH}"
+          echo "${CONDA_PREFIX}/Scripts" >> "${GITHUB_PATH}"
+          echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
+
+      - name: Download llvmlite artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: llvmlite-win-arm64-py${{ matrix.python-version }}
+          path: conda_channel_dir
+
+      - name: Run tests
+        run: |
+          pkg=$(find conda_channel_dir -name 'llvmlite*.conda' | head -1)
+          conda-build --test \
+            -c "${WIN_ARM64_CONDA_CHANNEL}" -c m2-winarm64 -c main "${pkg}"
