@@ -85,9 +85,10 @@ jobs:
             -c "${WIN_ARM64_CONDA_CHANNEL}" -c m2-winarm64 -c main \
             --yes "python=${{ matrix.python-version }}" cmake libxml2 pip
           echo "CONDA_PREFIX=${CONDA_PREFIX}" >> "${GITHUB_ENV}"
+          export PATH="${CONDA_PREFIX}/Scripts:${CONDA_PREFIX}/Library/bin:${CONDA_PREFIX}:${PATH}"
+          echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
           echo "${CONDA_PREFIX}" >> "${GITHUB_PATH}"
           echo "${CONDA_PREFIX}/Scripts" >> "${GITHUB_PATH}"
-          echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
           if [ -n "${{ github.event.inputs.llvmdev_run_id }}" ]; then
             CHAN="file:///${{ github.workspace }}/llvmdev_conda_packages"
             "${CONDA_EXE}" install --prefix "${CONDA_PREFIX}" -c defaults -c "${CHAN}" \
@@ -155,9 +156,10 @@ jobs:
             -c "${WIN_ARM64_CONDA_CHANNEL}" \
             --yes "python=${{ env.VALIDATION_PYTHON_VERSION }}" py-lief wheel twine
           echo "CONDA_PREFIX=${CONDA_PREFIX}" >> "${GITHUB_ENV}"
+          export PATH="${CONDA_PREFIX}/Scripts:${CONDA_PREFIX}/Library/bin:${CONDA_PREFIX}:${PATH}"
+          echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
           echo "${CONDA_PREFIX}" >> "${GITHUB_PATH}"
           echo "${CONDA_PREFIX}/Scripts" >> "${GITHUB_PATH}"
-          echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
 
       - name: Download llvmlite wheels
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -209,9 +211,10 @@ jobs:
             -c "${WIN_ARM64_CONDA_CHANNEL}" \
             --yes "python=${{ matrix.python-version }}" pip wheel
           echo "CONDA_PREFIX=${CONDA_PREFIX}" >> "${GITHUB_ENV}"
+          export PATH="${CONDA_PREFIX}/Scripts:${CONDA_PREFIX}/Library/bin:${CONDA_PREFIX}:${PATH}"
+          echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
           echo "${CONDA_PREFIX}" >> "${GITHUB_PATH}"
           echo "${CONDA_PREFIX}/Scripts" >> "${GITHUB_PATH}"
-          echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
           python -m pip install --upgrade pip wheel lief
           cd dist
           whl=$(ls -1 ./*.whl)
@@ -245,9 +248,9 @@ jobs:
           "${CONDA_EXE}" create --prefix "${CONDA_PREFIX}" \
             -c "${WIN_ARM64_CONDA_CHANNEL}" --yes anaconda-client
           echo "CONDA_PREFIX=${CONDA_PREFIX}" >> "${GITHUB_ENV}"
+          echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
           echo "${CONDA_PREFIX}" >> "${GITHUB_PATH}"
           echo "${CONDA_PREFIX}/Scripts" >> "${GITHUB_PATH}"
-          echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
 
       - name: Download llvmlite wheel
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
