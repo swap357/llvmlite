@@ -33,6 +33,8 @@ permissions:
 env:
   ARTIFACT_RETENTION_DAYS: 7
   WIN_ARM64_CONDA_CHANNEL: bootstrap-win-arm64-round-2-native
+  # All jobs/steps: conda solve, recipe selectors, vs2022_win-arm64 activation.
+  CONDA_SUBDIR: win-arm64
 
 jobs:
 
@@ -64,6 +66,7 @@ jobs:
           export CONDA_PREFIX="${RUNNER_TEMP}/conda-base"
           "${CONDA_EXE}" create --prefix "${CONDA_PREFIX}" \
             -c "${WIN_ARM64_CONDA_CHANNEL}" --yes conda-build
+          "${CONDA_EXE}" config --prefix "${CONDA_PREFIX}" --set subdir "${CONDA_SUBDIR}"
           echo "CONDA_PREFIX=${CONDA_PREFIX}" >> "${GITHUB_ENV}"
           echo "${CONDA_PREFIX}" >> "${GITHUB_PATH}"
           echo "${CONDA_PREFIX}/Scripts" >> "${GITHUB_PATH}"
@@ -132,6 +135,7 @@ jobs:
           export CONDA_PREFIX="${RUNNER_TEMP}/conda-base"
           "${CONDA_EXE}" create --prefix "${CONDA_PREFIX}" \
             -c "${WIN_ARM64_CONDA_CHANNEL}" --yes conda-build
+          "${CONDA_EXE}" config --prefix "${CONDA_PREFIX}" --set subdir "${CONDA_SUBDIR}"
           echo "CONDA_PREFIX=${CONDA_PREFIX}" >> "${GITHUB_ENV}"
           echo "${CONDA_PREFIX}" >> "${GITHUB_PATH}"
           echo "${CONDA_PREFIX}/Scripts" >> "${GITHUB_PATH}"
