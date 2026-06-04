@@ -40,6 +40,7 @@ env:
   VALIDATION_PYTHON_VERSION: "3.12"
   ARTIFACT_RETENTION_DAYS: 7
   WIN_ARM64_CONDA_CHANNEL: bootstrap-win-arm64-round-2-native
+  CONDA_SUBDIR: win-arm64
 
 jobs:
 
