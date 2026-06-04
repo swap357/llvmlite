@@ -210,13 +210,13 @@ jobs:
           export CONDA_PREFIX="${RUNNER_TEMP}/conda-base"
           "${CONDA_EXE}" create --prefix "${CONDA_PREFIX}" \
             -c "${WIN_ARM64_CONDA_CHANNEL}" \
-            --yes "python=${{ matrix.python-version }}" pip wheel
+            --yes "python=${{ matrix.python-version }}" pip wheel py-lief
           echo "CONDA_PREFIX=${CONDA_PREFIX}" >> "${GITHUB_ENV}"
           export PATH="${CONDA_PREFIX}/Scripts:${CONDA_PREFIX}/Library/bin:${CONDA_PREFIX}:${PATH}"
           echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
           echo "${CONDA_PREFIX}" >> "${GITHUB_PATH}"
           echo "${CONDA_PREFIX}/Scripts" >> "${GITHUB_PATH}"
-          python -m pip install --upgrade pip wheel lief
+          python -m pip install --upgrade pip wheel
           cd dist
           whl=$(ls -1 ./*.whl)
           echo "Using wheel: $whl"
