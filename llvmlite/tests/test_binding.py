@@ -3158,6 +3158,25 @@ class TestBuild(TestCase):
                                                 "api-ms-win-crt-utility-l1-1-0",
                                                 "shell32",  # this is delayed
                                                 "ole32",]), # also delayed
+                                  "arm64": set(["z",
+                                                "zstd",
+                                                "advapi32",
+                                                "kernel32",
+                                                "ntdll",
+                                                "msvcp140",
+                                                "vcruntime140",
+                                                "api-ms-win-crt-convert-l1-1-0",
+                                                "api-ms-win-crt-environment-l1-1-0", # noqa: E501
+                                                "api-ms-win-crt-heap-l1-1-0",
+                                                "api-ms-win-crt-locale-l1-1-0",
+                                                "api-ms-win-crt-math-l1-1-0",
+                                                "api-ms-win-crt-runtime-l1-1-0",
+                                                "api-ms-win-crt-stdio-l1-1-0",
+                                                "api-ms-win-crt-string-l1-1-0",
+                                                "api-ms-win-crt-time-l1-1-0",
+                                                "api-ms-win-crt-utility-l1-1-0",
+                                                "shell32",  # this is delayed
+                                                "ole32",]), # also delayed
                                   }, # end windows
                       "darwin": {"x86_64": set(["llvmlite",
                                                 "system",
@@ -3171,7 +3190,7 @@ class TestBuild(TestCase):
                                                "zstd",
                                                "c++",]),
                                  },# end darwin
-                      } # end wheel_expected
+                      } # end conda_expected
 
     def check_linkage(self, info, package_type):
         machine = platform.machine().lower()
