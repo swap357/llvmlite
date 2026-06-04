@@ -40,8 +40,6 @@ env:
   VALIDATION_PYTHON_VERSION: "3.12"
   ARTIFACT_RETENTION_DAYS: 7
   WIN_ARM64_CONDA_CHANNEL: bootstrap-win-arm64-round-2-native
-  # All jobs/steps: conda solve, recipe selectors, vs2022_win-arm64 activation.
-  CONDA_SUBDIR: win-arm64
 
 jobs:
 
@@ -85,7 +83,6 @@ jobs:
           "${CONDA_EXE}" create --prefix "${CONDA_PREFIX}" \
             -c "${WIN_ARM64_CONDA_CHANNEL}" -c m2-winarm64 -c main \
             --yes "python=${{ matrix.python-version }}" cmake libxml2 pip
-          "${CONDA_EXE}" config --prefix "${CONDA_PREFIX}" --set subdir "${CONDA_SUBDIR}"
           echo "CONDA_PREFIX=${CONDA_PREFIX}" >> "${GITHUB_ENV}"
           export PATH="${CONDA_PREFIX}/Scripts:${CONDA_PREFIX}/Library/bin:${CONDA_PREFIX}:${PATH}"
           echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
@@ -159,7 +156,6 @@ jobs:
           "${CONDA_EXE}" create --prefix "${CONDA_PREFIX}" \
             -c "${WIN_ARM64_CONDA_CHANNEL}" \
             --yes "python=${{ env.VALIDATION_PYTHON_VERSION }}" py-lief wheel
-          "${CONDA_EXE}" config --prefix "${CONDA_PREFIX}" --set subdir "${CONDA_SUBDIR}"
           echo "CONDA_PREFIX=${CONDA_PREFIX}" >> "${GITHUB_ENV}"
           export PATH="${CONDA_PREFIX}/Scripts:${CONDA_PREFIX}/Library/bin:${CONDA_PREFIX}:${PATH}"
           echo "${CONDA_PREFIX}/Library/bin" >> "${GITHUB_PATH}"
