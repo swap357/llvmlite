@@ -57,6 +57,7 @@ jobs:
         uses: conda-incubator/setup-conda-standalone@00a34805e93a8b640aee5f8a20e8f481ad77e3b4 # v0.1.0
         with:
           channel: ${{ env.WIN_ARM64_CONDA_CHANNEL }}
+          conda-standalone-version: 26.3.2.post1
           destination-directory: ${{ runner.temp }}/conda-standalone
 
       - name: Install conda-build
@@ -126,6 +127,7 @@ jobs:
         uses: conda-incubator/setup-conda-standalone@00a34805e93a8b640aee5f8a20e8f481ad77e3b4 # v0.1.0
         with:
           channel: ${{ env.WIN_ARM64_CONDA_CHANNEL }}
+          conda-standalone-version: 26.3.2.post1
           destination-directory: ${{ runner.temp }}/conda-standalone
 
       - name: Install conda-build
