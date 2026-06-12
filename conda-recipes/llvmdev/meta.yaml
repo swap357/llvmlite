@@ -11,6 +11,7 @@ source:
   - url: https://github.com/llvm/llvm-project/releases/download/llvmorg-{{ version.replace(".rc", "-rc") }}/llvm-project-{{ version.replace(".rc", "rc") }}.src.tar.xz
     sha256: {{ sha256_llvm }}
     patches:
+    - ../llvm22-aarch64-windows-frame-record.patch
     # - ../llvm15-remove-use-of-clonefile.patch
     # - ../llvm15-svml.patch
     # - ../compiler-rt-cfi-startproc-war.patch
@@ -52,9 +53,14 @@ requirements:
 test:
   files:
     - numba-3016.ll
+    - frame-record-min.ll
   commands:
     - $PREFIX/bin/llvm-config --libs                         # [not win]
     - $PREFIX/bin/llc -version                               # [not win]
+
+    # llvm22-aarch64-windows-frame-record.patch: FP/LR must be stored as an
+    # adjacent pair; unpatched assert builds abort, release builds split the pair
+    - '%LIBRARY_BIN%\llc frame-record-min.ll -o - | findstr /R /C:"stp.*x29, x30"'  # [win]
 
     - if not exist %LIBRARY_INC%\\llvm\\Pass.h exit 1        # [win]
     - if not exist %LIBRARY_LIB%\\LLVMSupport.lib exit 1     # [win]
