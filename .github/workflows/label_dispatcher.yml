@@ -1,0 +1,81 @@
+name: label_dispatcher
+
+# Triggers target workflows when specific labels are added to PRs.
+#
+# This avoids modifying each workflow's trigger config, which would cause
+# every PR to trigger every workflow (even if immediately skipped).
+#
+# Limitation: workflow_dispatch requires the ref to exist on this repo.
+# For fork PRs, the dispatcher creates a temporary branch from the PR head.
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+# Only one dispatcher per PR at a time
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch workflow for label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+          LABEL: ${{ github.event.label.name }}
+        run: |
+          set -euo pipefail
+
+          # Map labels to workflow files (space-separated for groups)
+          declare -A LABEL_MAP=(
+            ["test:conda"]="llvmlite_conda_builder.yml"
+            ["test:llvmdev"]="llvmdev_build.yml"
+            ["test:wheel-linux64"]="llvmlite_linux-64_wheel_builder.yml"
+            ["test:wheel-linux-aarch64"]="llvmlite_linux-aarch64_wheel_builder.yml"
+            ["test:wheel-osx-arm64"]="llvmlite_osx-arm64_wheel_builder.yml"
+            ["test:wheel-win64"]="llvmlite_win-64_wheel_builder.yml"
+            ["test:all-wheels"]="llvmlite_linux-64_wheel_builder.yml llvmlite_linux-aarch64_wheel_builder.yml llvmlite_osx-arm64_wheel_builder.yml llvmlite_win-64_wheel_builder.yml"
+            ["test:all"]="llvmlite_conda_builder.yml llvmlite_linux-64_wheel_builder.yml llvmlite_linux-aarch64_wheel_builder.yml llvmlite_osx-arm64_wheel_builder.yml llvmlite_win-64_wheel_builder.yml"
+          )
+
+          WORKFLOWS="${LABEL_MAP[$LABEL]:-}"
+
+          if [ -z "$WORKFLOWS" ]; then
+            echo "Label '$LABEL' does not map to any workflow, skipping."
+            exit 0
+          fi
+
+          echo "Label '$LABEL' -> workflows: $WORKFLOWS"
+
+          # Determine the ref to use for workflow_dispatch
+          if [ "$PR_HEAD_REPO" = "$BASE_REPO" ]; then
+            # Same-repo PR: branch exists on this repo
+            REF="$PR_HEAD_REF"
+            echo "Same-repo PR, using branch: $REF"
+          else
+            # Fork PR: create a temporary branch from the PR head
+            REF="tmp/pr-${PR_NUMBER}"
+            echo "Fork PR, creating temporary branch: $REF"
+            gh api "repos/${BASE_REPO}/git/refs" \
+              --method POST \
+              -f ref="refs/heads/${REF}" \
+              -f sha="$PR_HEAD_SHA" \
+              2>/dev/null || \
+            gh api "repos/${BASE_REPO}/git/refs/heads/${REF}" \
+              --method PATCH \
+              -f sha="$PR_HEAD_SHA"
+          fi
+
+          for WORKFLOW in $WORKFLOWS; do
+            echo "Triggering $WORKFLOW on ref: $REF"
+            gh workflow run "$WORKFLOW" --repo "$BASE_REPO" --ref "$REF"
+          done
+
+          echo "All workflows dispatched successfully."
