@@ -24,7 +24,7 @@ permissions:
 
 env:
   ARTIFACT_RETENTION_DAYS: 7
-  LLVMDEV_CHANNEL: numba/label/llvm
+  LLVMDEV_CHANNEL: swapnil357/label/llvm
   # win-arm64 has no Miniconda installer, so the base environment is
   # bootstrapped from conda-standalone using the win-arm64 native channel.
   WIN_ARM64_CONDA_CHANNEL: bootstrap-win-arm64-round-2-native
