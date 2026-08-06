@@ -3204,11 +3204,16 @@ class TestBuild(TestCase):
             raise ValueError(f"Unexpected package type: {package_type}")
 
         got = set(info["canonicalised_linked_libraries"])
-        # Normalize delvewheel-bundled MSVCP hashed name (e.g. msvcp140-<hash>)
-        got = {
-            ("msvcp140" if lib.startswith("msvcp140") else lib)
-            for lib in got
-        }
+        # Normalize delvewheel-mangled CRT names (e.g. msvcp140-<hash>,
+        # vcruntime140-<hash>). Longer prefixes first so vcruntime140_1
+        # is not collapsed to vcruntime140.
+        def _normalize_crt(lib):
+            for prefix in ("msvcp140", "vcruntime140_1", "vcruntime140"):
+                if lib.startswith(prefix):
+                    return prefix
+            return lib
+
+        got = {_normalize_crt(lib) for lib in got}
 
         try:
             self.assertEqual(expected, got)
