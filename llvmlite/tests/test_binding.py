@@ -487,28 +487,28 @@ define double @foo(i32 %i, double %j) optnone noinline {
 }
 """
 
-# A strided store loop: at O3 LLVM emits a "vector.body" block; optsize/minsize
-# inhibit the vectoriser so no "vector.body" is created.
-asm_vectorize = r"""
-    ; ModuleID = '<string>'
 
-    define void @stride1(ptr noalias %B, i32 %BStride) {{
-    entry:
-        br label %for.body
+# A @caller invoking a @leaf of n_pairs dependent mul+add pairs. Whether the
+# O3 pipeline inlines @leaf depends only on the target-independent inliner
+# thresholds (LLVM InlineCost.cpp: 225 plain, 50 optsize, 5 minsize), making
+# the inline decision a portable observable for optsize/minsize behaviour.
+def asm_inline_chain(n_pairs):
+    body = []
+    prev = "%x"
+    for i in range(n_pairs):
+        body.append("  %m{0} = mul i32 {1}, {1}".format(i, prev))
+        body.append("  %a{0} = add i32 %m{0}, {1}".format(i, i + 1))
+        prev = "%a{0}".format(i)
+    return (
+        "define i32 @leaf(i32 %x) {\n" + "\n".join(body)
+        + "\n  ret i32 " + prev + "\n}\n"
+        "define i32 @caller(i32 %x) {\n"
+        "  %r = call i32 @leaf(i32 %x)\n"
+        "  %r2 = add i32 %r, 7\n"
+        "  ret i32 %r2\n"
+        "}\n"
+    )
 
-    for.body:
-        %iv = phi i32 [ %iv.next, %for.body ], [ 0, %entry ]
-        %mulB = mul nsw i32 %iv, %BStride
-        %gepOfB = getelementptr inbounds i16, ptr %B, i32 %mulB
-        store i16 42, ptr %gepOfB, align 4
-        %iv.next = add nuw nsw i32 %iv, 1
-        %exitcond = icmp eq i32 %iv.next, 1025
-        br i1 %exitcond, label %for.end, label %for.body
-
-    for.end:
-        ret void
-    }}
-    """
 
 asm_declaration = r"""
 declare void @test_declare(i32* )
@@ -2810,36 +2810,42 @@ class TestNewModulePassManager(BaseTest, NewPassManagerMixin):
         self.assertIn("alloca", optimized_asm_optnone)
 
     def test_optsize_minsize(self):
+        """optsize/minsize attributes must reach the pass pipeline.
+
+        Attribute plumbing is covered by test_add_function_attribute*.
+        The observable here is the inliner, whose size thresholds are
+        target-independent (LLVM InlineCost.cpp: 225 plain, 50 optsize,
+        5 minsize), so the test behaves identically on every host —
+        unlike vectorisation, which needs SIMD registers that the
+        i686/s390x/riscv64 baseline CPUs don't have (issue #1449).
+        The callee sizes sit mid-band against threshold drift: on
+        LLVM 22 the O3 pipeline inlines a chain of up to ~40 mul+add
+        pairs, optsize up to ~10, minsize up to ~3.
+        """
         pb = self.pb(speed_level=3)
 
-        # Without optsize: O3 vectorises the loop
-        mod = self.module(asm_vectorize)
-        mpm = pb.getModulePassManager()
-        mpm.run(mod, pb)
-        optimized = str(mod)
-        self.assertIn("vector.body", optimized)
+        def run(n_pairs, attr=None):
+            mod = llvm.parse_assembly(asm_inline_chain(n_pairs))
+            if attr:
+                fn = mod.get_function("caller")
+                fn.add_function_attribute(attr)
+                self.assertIn(attr.encode(), list(fn.attributes))
+            mpm = pb.getModulePassManager()
+            mpm.run(mod, pb)
+            return str(mod)
 
-        # With optsize: vectorisation is suppressed
-        mod_optsize = self.module(asm_vectorize)
-        fn = mod_optsize.get_function("stride1")
-        fn.add_function_attribute("optsize")
-        self.assertIn(b"optsize", list(fn.attributes))
-        mpm2 = pb.getModulePassManager()
-        mpm2.run(mod_optsize, pb)
-        optimized_optsize = str(mod_optsize)
-        self.assertIn("optsize", optimized_optsize)
-        self.assertNotIn("vector.body", optimized_optsize)
-
-        # With minsize: vectorisation is suppressed
-        mod_minsize = self.module(asm_vectorize)
-        fn = mod_minsize.get_function("stride1")
-        fn.add_function_attribute("minsize")
-        self.assertIn(b"minsize", list(fn.attributes))
-        mpm3 = pb.getModulePassManager()
-        mpm3.run(mod_minsize, pb)
-        optimized_minsize = str(mod_minsize)
-        self.assertIn("minsize", optimized_minsize)
-        self.assertNotIn("vector.body", optimized_minsize)
+        # Inlining copies @leaf's body into @caller, replacing the
+        # "call i32 @leaf" instruction — its presence in the optimized
+        # IR is the observable. @leaf's size (n_pairs) decides: each
+        # threshold inlines it only when its body is cheap enough.
+        # Plain O3 inlines a 25-pair @leaf
+        self.assertNotIn("call i32 @leaf", run(25))
+        # optsize refuses it: too much code growth for -Os
+        self.assertIn("call i32 @leaf", run(25, "optsize"))
+        # a 6-pair @leaf is cheap enough for optsize...
+        self.assertNotIn("call i32 @leaf", run(6, "optsize"))
+        # ...but not for minsize
+        self.assertIn("call i32 @leaf", run(6, "minsize"))
 
     def test_add_passes(self):
         mpm = self.pm()
