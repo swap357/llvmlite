@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import unittest
+from unittest import mock
 from contextlib import contextmanager
 from tempfile import mkstemp
 
@@ -2622,6 +2623,81 @@ class NewPassManagerMixin(object):
 
 
 class TestPassBuilder(BaseTest, NewPassManagerMixin):
+
+    def test_vector_library_names(self):
+        with self.target_machine(jit=False) as tm, \
+             llvm.create_pipeline_tuning_options() as pto:
+            for name in ('none', 'accelerate', 'darwin_libsystem_m', 'libmvec',
+                         'massv', 'svml', 'sleefgnuabi', 'armpl', 'amdlibm',
+                         None):
+                with self.subTest(name=name):
+                    llvm.create_pass_builder(tm, pto, name).close()
+
+    def test_vector_library_invalid(self):
+        create = mock.Mock(wraps=llvm.ffi.lib.LLVMPY_CreatePassBuilder)
+        with self.target_machine(jit=False) as tm, \
+             llvm.create_pipeline_tuning_options() as pto, \
+             mock.patch.dict(llvm.ffi.lib._fntab,
+                             LLVMPY_CreatePassBuilder=create):
+            for value in ('unknown', 'auto', 'accelerate\0other', ''):
+                with self.subTest(value=value), \
+                     self.assertRaisesRegex(ValueError, 'Unknown vector'):
+                    llvm.create_pass_builder(tm, pto, vector_library=value)
+            for value in (True, 1, b'accelerate', []):
+                with self.subTest(value=value), \
+                     self.assertRaisesRegex(TypeError, 'string or None'):
+                    llvm.PassBuilder(tm, pto, vector_library=value)
+        create.assert_not_called()
+
+    def check_vector_library(self, pb, expected):
+        asm = '''
+        declare float @sinf(float)
+        define float @f(float %x) {
+            %y = call float @sinf(float %x)
+            ret float %y
+        }
+        '''
+        with llvm.parse_assembly(asm) as mod, \
+             pb.getModulePassManager() as pm:
+            mod.triple = pb._tm.triple
+            pm.run(mod, pb)
+            mod.verify()
+            self.assertEqual('(vsinf)' in str(mod), expected)
+
+    def test_vector_library(self):
+        with self.target_machine(jit=False) as tm, \
+             llvm.create_pipeline_tuning_options(3) as pto:
+            for name in (None, 'accelerate', 'none'):
+                with self.subTest(name=name), \
+                     llvm.create_pass_builder(tm, pto, name) as pb:
+                    self.check_vector_library(pb, name == 'accelerate')
+
+    def test_vector_library_independent_builders(self):
+        with self.target_machine(jit=False) as tm, \
+             llvm.create_pipeline_tuning_options(3) as pto, \
+             llvm.create_pass_builder(tm, pto, 'accelerate') as accelerate, \
+             llvm.create_pass_builder(tm, pto, 'none') as none, \
+             llvm.create_pass_builder(tm, pto) as default:
+            for pb, expected in ((accelerate, True), (none, False),
+                                 (default, False), (accelerate, True)):
+                self.check_vector_library(pb, expected)
+
+    def test_vector_library_function_pass_manager(self):
+        with self.target_machine(jit=False) as tm, \
+             llvm.create_pipeline_tuning_options(3) as pto:
+            for name in ('accelerate', 'none'):
+                with llvm.create_pass_builder(tm, pto, name) as pb, \
+                     pb.getFunctionPassManager() as pm, self.module() as mod:
+                    run = llvm.ffi.lib.LLVMPY_RunNewFunctionPassManager
+                    traced = mock.Mock(wraps=run)
+                    with mock.patch.dict(
+                            llvm.ffi.lib._fntab,
+                            LLVMPY_RunNewFunctionPassManager=traced):
+                        pm.run(mod.get_function('sum'), pb)
+                    self.assertEqual(traced.call_args.args[-1],
+                                     llvm.ffi.lib.LLVMPY_ParseVectorLibrary(
+                                         name.encode()))
+                    mod.verify()
 
     def test_close(self):
         pb = self.pb()
