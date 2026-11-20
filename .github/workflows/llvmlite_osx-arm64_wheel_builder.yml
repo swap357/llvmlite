@@ -29,13 +29,19 @@ env:
   FALLBACK_LLVMDEV_VERSION: "22"
   CONDA_CHANNEL_NUMBA: numba/label/llvm_wheel
   BUILD_PYTHON_VERSION: "3.12"
-  VALIDATION_PYTHON_VERSION: "3.12"
+  UPLOAD_PYTHON_VERSION: "3.12"
   ARTIFACT_RETENTION_DAYS: 7
+
+permissions:
+  contents: read
 
 jobs:
   osx-arm64-build:
     name: osx-arm64-build
     runs-on: macos-26
+    permissions:
+      contents: read
+      actions: read  # download llvmdev artifact from another workflow run
     defaults:
       run:
         shell: bash -elx {0}
@@ -45,6 +51,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@be893c923ea9cf1cf7cd510fbdde27c7e18cbdcb # v4.1.0
@@ -63,14 +70,16 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install build dependencies
+        env:
+          LLVMDEV_RUN_ID: ${{ inputs.llvmdev_run_id }}
         run: |
-          conda install -c defaults python="${{ env.BUILD_PYTHON_VERSION }}"
-          if [ "${{ inputs.llvmdev_run_id }}" != "" ]; then
-              CHAN="file://${{ github.workspace }}/llvmdev_conda_packages"
-              conda install -c defaults -c "$CHAN" "llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}"
+          conda install -c defaults "python=${BUILD_PYTHON_VERSION}"
+          if [ -n "$LLVMDEV_RUN_ID" ]; then
+              CHAN="file://${GITHUB_WORKSPACE}/llvmdev_conda_packages"
+              conda install -c defaults -c "$CHAN" "llvmdev=${FALLBACK_LLVMDEV_VERSION}"
           else
-              CHAN="${{ env.CONDA_CHANNEL_NUMBA }}"
-              conda install -c defaults "${CHAN}::llvmdev=${{ env.FALLBACK_LLVMDEV_VERSION }}"
+              CHAN="${CONDA_CHANNEL_NUMBA}"
+              conda install -c defaults "${CHAN}::llvmdev=${FALLBACK_LLVMDEV_VERSION}"
           fi
           python -m pip install build wheel setuptools
 
@@ -112,39 +121,7 @@ jobs:
           if-no-files-found: error
 
       - name: Show Workflow Run ID
-        run: "echo \"Workflow Run ID: ${{ github.run_id }}\""
-
-  osx-arm64-validate:
-    name: osx-arm64-validate
-    needs: osx-arm64-build
-    runs-on: macos-26
-    defaults:
-      run:
-        shell: bash -elx {0}
-    steps:
-      - name: Clone repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@be893c923ea9cf1cf7cd510fbdde27c7e18cbdcb # v4.1.0
-        with:
-          python-version: ${{ env.VALIDATION_PYTHON_VERSION }}
-          auto-update-conda: true
-          auto-activate-base: true
-
-      - name: Install validation dependencies
-        run: conda install -c defaults wheel twine keyring rfc3986
-
-      - name: Download llvmlite wheels
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: llvmlite-osx-arm64
-          path: dist
-
-      - name: Validate wheels
-        run: |
-          cd dist
-          twine check ./*.whl
+        run: 'echo "Workflow Run ID: ${GITHUB_RUN_ID}"'
 
   osx-arm64-test:
     name: osx-arm64-test
@@ -160,7 +137,7 @@ jobs:
 
     steps:
       - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
@@ -174,13 +151,22 @@ jobs:
       - name: Install and test
         env:
           LLVMLITE_DIST_TEST: "1"
+          MATRIX_PYTHON_VERSION: ${{ matrix.python-version }}
         run: |
-          PYTHON_PATH=$(which "python${{ matrix.python-version }}")
+          PYTHON_PATH=$(which "python${MATRIX_PYTHON_VERSION}")
           "$PYTHON_PATH" -m venv .venv && source .venv/bin/activate
-          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade pip wheel twine
+          cd dist
+          wheels=(./*.whl)
+          if [ "${#wheels[@]}" -ne 1 ] || [ ! -f "${wheels[0]}" ]; then
+            echo "ERROR: Expected exactly one wheel in dist"
+            exit 1
+          fi
+          whl="${wheels[0]}"
+          twine check "$whl"
           echo "Installing lief for distribution testing"
           python -m pip install -v lief
-          cd dist && python -m pip install -v ./*.whl
+          python -m pip install -v "$whl"
           DYLIB_PATH=$(find "$(python -c "import llvmlite; print(llvmlite.__path__[0])")" -name "libllvmlite.dylib")
           echo "Found dylib at: $DYLIB_PATH" && otool -L "$DYLIB_PATH"
           python -m llvmlite.tests
@@ -190,6 +176,7 @@ jobs:
     needs: osx-arm64-test
     if: github.event_name == 'workflow_dispatch' && inputs.upload_wheel_to_anaconda
     runs-on: macos-26
+    environment: anaconda
     defaults:
       run:
         shell: bash -elx {0}
@@ -197,7 +184,7 @@ jobs:
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@be893c923ea9cf1cf7cd510fbdde27c7e18cbdcb # v4.1.0
         with:
-          python-version: ${{ env.VALIDATION_PYTHON_VERSION }}
+          python-version: ${{ env.UPLOAD_PYTHON_VERSION }}
           auto-update-conda: true
           auto-activate-base: true
 
@@ -215,6 +202,11 @@ jobs:
           ANACONDA_API_TOKEN: ${{ secrets.NUMBA_CHANNEL_WHEEL_UPLOAD }}
         run: |
           cd dist
-          whl=$(stat -f "%m %N" ./*.whl | sort -n | tail -n 1 | cut -d' ' -f2-)
+          wheels=(./*.whl)
+          if [ "${#wheels[@]}" -ne 1 ] || [ ! -f "${wheels[0]}" ]; then
+            echo "ERROR: Expected exactly one wheel in dist"
+            exit 1
+          fi
+          whl="${wheels[0]}"
           echo "Uploading wheel: $whl"
           anaconda -t "$ANACONDA_API_TOKEN" upload --force -u numba -l dev "$whl"
